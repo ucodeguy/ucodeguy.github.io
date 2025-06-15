@@ -1,6 +1,6 @@
 window.AppConfig = {
   NEWS_API_KEY: 'pub_002054ec6eaf4e20a595bdc8f6fd81db', // 請替換為有效 NewsData.io API 密鑰
-  GOOGLE_TRANSLATE_API_KEY: 'YOUR_GOOGLE_API_KEY', // 請替換為有效 Google Cloud Translate API 密鑰
+  DEEPL_API_KEY: 'YOUR_DEEPL_API_KEY', // 請替換為有效 DeepL API Free 密鑰
   sourceLogos: {
     'scmp': 'https://via.placeholder.com/150?text=SCMP',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
