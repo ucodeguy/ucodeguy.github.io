@@ -1,6 +1,6 @@
 const baseUrl = 'https://newsdata.io/api/1/latest';
 const nextPages = { local: null, world: null, finance: null };
-const { sourceLogos, regions, traditionalChars, simplifiedChars, GOOGLE_TRANSLATE_API_KEY } = window.AppConfig;
+const { sourceLogos, regions, traditionalChars, simplifiedChars, DEEPL_API_KEY } = window.AppConfig;
 const translationCache = JSON.parse(localStorage.getItem('translationCache') || '{}');
 
 // Utility Functions
@@ -26,18 +26,25 @@ const utils = {
       return translationCache[cacheKey].translated;
     }
     try {
-      const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(GOOGLE_TRANSLATE_API_KEY)}`, {
+      const response = await fetch('https://api-free.deepl.com/v2/translate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: text, target: targetLang, format: 'text' })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          auth_key: DEEPL_API_KEY,
+          text: text,
+          target_lang: targetLang === 'zh-TW' ? 'ZH' : 'EN' // DeepL 使用 ZH 自動適配繁體
+        })
       });
       if (!response.ok) {
         console.error(`Translation failed: ${response.status} ${response.statusText}`);
+        if (response.status === 429) {
+          return `${text} (翻譯超限)`;
+        }
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
-      if (data.data && data.data.translations && data.data.translations[0]) {
-        const translated = data.data.translations[0].translatedText;
+      if (data.translations && data.translations[0]) {
+        const translated = data.translations[0].text;
         translationCache[cacheKey] = { translated, timestamp: Date.now() };
         localStorage.setItem('translationCache', JSON.stringify(translationCache));
         return translated;
@@ -45,7 +52,7 @@ const utils = {
       throw new Error('Invalid translation response');
     } catch (error) {
       console.error(`Error translating to ${targetLang}:`, error);
-      return null;
+      return `${text} (翻譯失敗)`;
     }
   },
 
