@@ -13,6 +13,10 @@ const utils = {
     return tradCount > simpCount ? tradCount / (tradCount + simpCount + 1) : 0;
   },
 
+  isEnglish(text) {
+    return /^[A-Za-z0-9\s.,!?]+$/.test(text.replace(/[\u4e00-\u9fff]/g, '')) && text.length > 10;
+  },
+
   formatDateTime(date) {
     return date.toLocaleString('zh-TW', {
       timeZone: 'Asia/Hong_Kong',
@@ -33,7 +37,7 @@ const utils = {
   isWithin48Hours(pubDate) {
     if (!pubDate) {
       console.warn('No pubDate, assuming current time');
-      return true; // 放寬：無 pubDate 時假設有效
+      return true;
     }
     try {
       let articleDate = new Date(pubDate);
@@ -92,13 +96,14 @@ const render = {
 
     const articlesWithScore = filteredArticles.map(article => ({
       article,
-      tradScore: utils.isTraditionalChinese(article.title + (article.description || ''))
+      tradScore: utils.isTraditionalChinese(article.title + (article.description || '')),
+      engScore: utils.isEnglish(article.title + (article.description || '')) ? 1 : 0
     }));
-    articlesWithScore.sort((a, b) => b.tradScore - a.tradScore);
+    articlesWithScore.sort((a, b) => (b.tradScore + b.engScore) - (a.tradScore + a.engScore));
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無可用新聞，可能原因：無近期數據或語言限制，請稍後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無可用新聞，可能原因：無近期數據或API限制，請稍後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -109,10 +114,16 @@ const render = {
       seenTitles.add(normalizedTitle);
       const source = headline.source_id || headline.source_name || '未知來源';
       const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
+      const isTrad = utils.isTraditionalChinese(headline.title);
+      const isEng = utils.isEnglish(headline.title);
       container.innerHTML = `
         <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (headline.image_url || sourceLogos['default'])}" alt="${headline.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${headline.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${headline.image_url}');">
         <div class="ml-6 flex-1">
-          <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${headline.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
+          <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+            ${headline.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
+            ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
+            ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+          </h3>
           <p class="mt-4">${headline.description || '無摘要'}</p>
           <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
         </div>
@@ -126,10 +137,16 @@ const render = {
             ${regionArticles.map((article, index) => {
               const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
               seenTitles.add(normalizedTitle);
-              const source = article.source_id || headline.source_name || '未知來源';
+              const source = article.source_id || article.source_name || '未知來源';
+              const isTrad = utils.isTraditionalChinese(article.title);
+              const isEng = utils.isEnglish(article.title);
               return `
                 <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-                  <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
+                  <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+                    ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
+                    ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
+                    ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+                  </h3>
                   <p class="mt-2">${article.description || '無摘要'}</p>
                   <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
                 </div>
@@ -146,11 +163,17 @@ const render = {
         const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
         const source = article.source_id || article.source_name || '未知來源';
         const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
+        const isTrad = utils.isTraditionalChinese(article.title);
+        const isEng = utils.isEnglish(article.title);
         if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
         container.innerHTML += `
           <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
             <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
-            <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
+            <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+              ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
+              ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
+              ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+            </h3>
             ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
             <p class="mt-2">${article.description || '無摘要'}</p>
             <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
@@ -178,7 +201,7 @@ const fetch = {
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
           return;
         }
-        cachedData = data; // 保存過期緩存作為備用
+        cachedData = data;
       } catch (error) {
         console.warn(`Invalid cache for ${cacheKey}, clearing cache`, error);
         localStorage.removeItem(cacheKey);
