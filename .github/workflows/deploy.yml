@@ -5,13 +5,17 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Replace API Key
       run: |
         sed -i 's/YOUR_API_KEY/${{ secrets.NEWS_API_KEY }}/g' config.js
     - name: Deploy to GitHub Pages
-      uses: JamesIves/github-pages-deploy-action@4.1.5
+      uses: JamesIves/github-pages-deploy-action@v4
       with:
         branch: gh-pages
         folder: .
+        token: ${{ secrets.GITHUB_TOKEN }}
