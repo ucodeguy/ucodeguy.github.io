@@ -135,6 +135,9 @@
     #headline .ml-6 {
       margin-left: clamp(1rem, 3vw, 1.5rem);
     }
+    .read {
+      color: #6b7280 !important;
+    }
     @media (max-width: 768px) {
       #headline {
         flex-direction: column;
@@ -263,69 +266,79 @@
     function validateCategory(article, category) {
       const text = (article.title + (article.description || '')).toLowerCase();
       if (category === 'local') {
-        return text.includes('香港');
+        return true; // 僅依賴 country=hk
       } else if (category === 'world') {
-        return !text.includes('香港') && !text.includes('本地');
+        return true; // 放寬限制
       } else if (category === 'finance') {
-        return (text.includes('經濟') || text.includes('市場') || text.includes('股票')) && !text.includes('天氣');
+        return !text.includes('天氣');
       }
       return true; // 頭條不限制
+    }
+
+    // 驗證過去 24 小時
+    function isWithin24Hours(pubDate) {
+      if (!pubDate) return false;
+      const articleDate = new Date(pubDate);
+      const now = new Date();
+      const diffMs = now - articleDate;
+      return diffMs >= 0 && diffMs <= 24 * 60 * 60 * 1000;
     }
 
     // 渲染新聞
     function renderNews(containerId, articles, isHeadline = false, append = false) {
       const container = document.getElementById(containerId);
       if (!append) container.innerHTML = '';
-      const category = containerId.split('-')[0];
+      const category = isHeadline ? '頭條' : containerId.split('-')[0];
 
-      // 過濾 Yahoo.com
-      const filteredArticles = articles.filter(article => !article.link.toLowerCase().includes('yahoo.com'));
-      console.log(`Filtered out ${articles.length - filteredArticles.length} Yahoo.com articles`);
+      // 從 localStorage 獲取已閱讀標題
+      let seenTitles = new Set(JSON.parse(localStorage.getItem('seenTitles') || '[]'));
 
-      // 過濾重複新聞，優先繁體
-      const seenTitles = new Set();
-      const articlesWithScore = filteredArticles
-        .filter(article => validateCategory(article, category))
-        .map(article => ({
-          article,
-          tradScore: isTraditionalChinese(article.title + (article.description || ''))
-        }));
+      // 過濾 Yahoo.com 和時間範圍
+      const filteredArticles = articles.filter(article => 
+        !article.link.toLowerCase().includes('yahoo.com') && 
+        isWithin24Hours(article.pubDate) &&
+        validateCategory(article, category)
+      );
+      console.log(`Filtered out ${articles.length - filteredArticles.length} articles (Yahoo.com, time, or category)`);
+
+      // 按繁體中文排序
+      const articlesWithScore = filteredArticles.map(article => ({
+        article,
+        tradScore: isTraditionalChinese(article.title + (article.description || ''))
+      }));
       articlesWithScore.sort((a, b) => b.tradScore - a.tradScore);
-      const uniqueArticles = articlesWithScore.filter(({ article }) => {
-        const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
-        if (seenTitles.has(normalizedTitle)) {
-          console.log(`Filtered duplicate article: ${article.title}`);
-          return false;
-        }
-        seenTitles.add(normalizedTitle);
-        return true;
-      }).map(({ article }) => article);
+      const sortedArticles = articlesWithScore.map(({ article }) => article);
 
       // 渲染
-      if (uniqueArticles.length === 0) {
+      if (sortedArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
         document.getElementById(`load-more-${category}`)?.classList.add('hidden');
         return;
       }
       if (isHeadline) {
-        const headline = uniqueArticles[0];
+        const headline = sortedArticles[0];
+        const normalizedTitle = headline.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
+        seenTitles.add(normalizedTitle);
         container.innerHTML = `
           <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
-            <h3 class="font-semibold">${headline.title}</h3>
+            <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${headline.title}</h3>
             <p class="mt-4">${headline.description || '無摘要'}</p>
             <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
           </div>
         `;
       } else {
-        uniqueArticles.slice(0, 6).forEach((article, index) => {
+        sortedArticles.slice(0, 6).forEach((article, index) => {
           const isLocal = category === 'local';
+          const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
+          seenTitles.add(normalizedTitle);
+          const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
           if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
               <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.src='https://via.placeholder.com/300x200'; console.warn('Failed to load image: ${article.image_url}');">
-              <h3 class="text-xl font-semibold">${article.title}</h3>
-              ${isLocal ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
+              <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title}</h3>
+              ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
               <p class="mt-2">${article.description || '無摘要'}</p>
               <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
             </div>
@@ -333,6 +346,8 @@
         });
         document.getElementById(`load-more-${category}`)?.classList.remove('hidden');
       }
+      // 更新 seenTitles（最多 100 條）
+      localStorage.setItem('seenTitles', JSON.stringify([...seenTitles].slice(0, 100)));
     }
 
     // 獲取新聞
@@ -348,7 +363,7 @@
         }
       }
       try {
-        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh`;
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh&time_range=24h`;
         if (isHeadline) {
           url += '&category=top&country=hk';
         } else if (category === 'local' && !fallback) {
