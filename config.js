@@ -1,5 +1,5 @@
 window.AppConfig = {
-  NEWS_API_KEY: 'YOUR_API_KEY',
+  NEWS_API_KEY: 'pub_002054ec6eaf4e20a595bdc8f6fd81db',
   sourceLogos: {
     'scmp': 'https://via.placeholder.com/150?text=SCMP',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
