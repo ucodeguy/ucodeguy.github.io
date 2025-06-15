@@ -1,6 +1,6 @@
 const baseUrl = 'https://newsdata.io/api/1/latest';
 const nextPages = { local: null, world: null, finance: null };
-const { sourceLogos, regions, traditionalChars, simplifiedChars, validSources } = window.AppConfig;
+const { sourceLogos, regions, traditionalChars, simplifiedChars, validSources, fallbackSources } = window.AppConfig;
 
 // Utility Functions
 const utils = {
@@ -10,12 +10,12 @@ const utils = {
       if (traditionalChars.has(char)) tradCount++;
       if (simplifiedChars.has(char)) simpCount++;
     }
-    return tradCount > simpCount && tradCount > 5 ? tradCount / (tradCount + simpCount + 1) : 0;
+    return tradCount > simpCount && tradCount > 3 ? tradCount / (tradCount + simpCount + 1) : 0;
   },
 
   isEnglish(text) {
     const cleanText = text.replace(/[\u4e00-\u9fff]/g, '');
-    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 10;
+    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 5;
   },
 
   formatDateTime(date) {
@@ -92,7 +92,7 @@ const render = {
         return false;
       }
       const source = (article.source_id || article.source_name || '').toLowerCase();
-      if (!validSources.includes(source)) {
+      if (!fallbackSources && !validSources.includes(source)) {
         console.log(`Filtered out article due to invalid source: ${source}, title: ${article.title}`);
         return false;
       }
@@ -114,7 +114,7 @@ const render = {
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符或API限制，請稍後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（${fallbackSources ? '所有來源' : '指定來源'}），可能原因：無近期數據、語言不符或API限制，請檢查 F12 > Console 或稍後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -204,7 +204,7 @@ const fetch = {
     if (cached) {
       try {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 3 * 60 * 1000) {
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
           console.log(`Using cached data for ${category || 'headline'}`);
           render.renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
@@ -227,7 +227,7 @@ const fetch = {
       } else if (category === 'business') {
         url += '&category=business';
       } else if (fallback) {
-        url += '&country=hk';
+        url += '&country=hk'; // 回退查詢
       }
       if (nextPages[containerId.split('-')[0]] && append) {
         url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
@@ -238,6 +238,8 @@ const fetch = {
         console.error(`API request failed: ${response.status} ${response.statusText}`);
         if (response.status === 429) {
           document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">News API 請求超限，請稍後重試</div>';
+        } else if (response.status === 401) {
+          document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">News API 密鑰無效，請檢查 config.js</div>';
         }
         throw new Error(`HTTP ${response.status}`);
       }
@@ -256,9 +258,9 @@ const fetch = {
             render.renderNews(containerId, cachedData.results, isHeadline, append);
           } else {
             render.renderNews(containerId, [], isHeadline);
-            if (category === 'local' && !fallback) {
-              console.log('Falling back to country=hk for local news');
-              fetch.fetchNews(apiKey, '', 'local-news', false, append, true);
+            if (!fallback && (category === 'local' || isHeadline)) {
+              console.log(`Falling back to country=hk for ${category || 'headline'}`);
+              fetch.fetchNews(apiKey, '', containerId, isHeadline, append, true);
             }
           }
         }
@@ -292,7 +294,7 @@ const fetch = {
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < 3 * 60 * 1000) {
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
             console.log(`Using cached data for ${region}`);
             render.renderNews('regional-news', data.results, false, true, region);
             continue;
@@ -304,13 +306,15 @@ const fetch = {
         }
       }
       try {
-        const url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}`;
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}`;
         console.log(`Fetching regional news: ${url}`);
         const response = await window.fetch(url);
         if (!response.ok) {
           console.error(`API request failed for ${region}: ${response.status} ${response.statusText}`);
           if (response.status === 429) {
             container.innerHTML += `<div class="text-center text-red-500">${region}: News API 請求超限，請稍後重試</div>`;
+          } else if (response.status === 401) {
+            container.innerHTML += `<div class="text-center text-red-500">${region}: News API 密鑰無效，請檢查 config.js</div>`;
           }
           throw new Error(`HTTP ${response.status}`);
         }
@@ -326,6 +330,18 @@ const fetch = {
             render.renderNews('regional-news', cachedData.results, false, true, region);
           } else {
             render.renderNews('regional-news', [], false, true, region);
+            // 嘗試回退查詢
+            if (region === '台灣' || region === '香港') {
+              console.log(`Falling back for ${region}`);
+              url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&q=news`;
+              const fallbackResponse = await window.fetch(url);
+              if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                if (fallbackData.status === 'success' && fallbackData.results) {
+                  render.renderNews('regional-news', fallbackData.results, false, true, region);
+                }
+              }
+            }
           }
         }
       } catch (error) {
