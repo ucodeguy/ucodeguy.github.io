@@ -259,10 +259,24 @@
     const baseUrl = 'https://newsdata.io/api/1/latest';
     const nextPages = { local: null, world: null, finance: null };
 
+    // 分類驗證
+    function validateCategory(article, category) {
+      const text = (article.title + (article.description || '')).toLowerCase();
+      if (category === 'local') {
+        return text.includes('香港');
+      } else if (category === 'world') {
+        return !text.includes('香港') && !text.includes('本地');
+      } else if (category === 'finance') {
+        return (text.includes('經濟') || text.includes('市場') || text.includes('股票')) && !text.includes('天氣');
+      }
+      return true; // 頭條不限制
+    }
+
     // 渲染新聞
     function renderNews(containerId, articles, isHeadline = false, append = false) {
       const container = document.getElementById(containerId);
       if (!append) container.innerHTML = '';
+      const category = containerId.split('-')[0];
 
       // 過濾 Yahoo.com
       const filteredArticles = articles.filter(article => !article.link.toLowerCase().includes('yahoo.com'));
@@ -270,10 +284,12 @@
 
       // 過濾重複新聞，優先繁體
       const seenTitles = new Set();
-      const articlesWithScore = filteredArticles.map(article => ({
-        article,
-        tradScore: isTraditionalChinese(article.title + (article.description || ''))
-      }));
+      const articlesWithScore = filteredArticles
+        .filter(article => validateCategory(article, category))
+        .map(article => ({
+          article,
+          tradScore: isTraditionalChinese(article.title + (article.description || ''))
+        }));
       articlesWithScore.sort((a, b) => b.tradScore - a.tradScore);
       const uniqueArticles = articlesWithScore.filter(({ article }) => {
         const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
@@ -288,7 +304,7 @@
       // 渲染
       if (uniqueArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
-        document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.add('hidden');
+        document.getElementById(`load-more-${category}`)?.classList.add('hidden');
         return;
       }
       if (isHeadline) {
@@ -303,7 +319,7 @@
         `;
       } else {
         uniqueArticles.slice(0, 6).forEach((article, index) => {
-          const isLocal = containerId === 'local-news';
+          const isLocal = category === 'local';
           if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
@@ -315,7 +331,7 @@
             </div>
           `;
         });
-        document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.remove('hidden');
+        document.getElementById(`load-more-${category}`)?.classList.remove('hidden');
       }
     }
 
@@ -333,11 +349,16 @@
       }
       try {
         let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh`;
-        if (category === 'local' && !fallback) {
+        if (isHeadline) {
+          url += '&category=top&country=hk';
+        } else if (category === 'local' && !fallback) {
           url += `&category=local&country=hk&q=${encodeURIComponent('香港')}`;
-        } else {
-          if (category) url += `&category=${encodeURIComponent(category)}`;
-          if (!fallback) url += '&country=hk';
+        } else if (category === 'world') {
+          url += '&category=world';
+        } else if (category === 'business') {
+          url += `&category=business&q=${encodeURIComponent('-天氣 -颱風')}`;
+        } else if (fallback) {
+          url += '&country=hk';
         }
         if (nextPages[containerId.split('-')[0]] && append) {
           url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
