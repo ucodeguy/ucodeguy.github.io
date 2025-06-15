@@ -17,7 +17,6 @@
     }
   </script>
   <style>
-    /* 定義主題變量 */
     :root[data-theme="apple"] {
       --bg-primary: #ffffff;
       --bg-secondary: #f5f5f7;
@@ -51,8 +50,6 @@
       --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       --card-bg: #ffffff;
     }
-
-    /* 應用主題變量 */
     body {
       background-color: var(--bg-primary);
       color: var(--text-primary);
@@ -79,8 +76,6 @@
       background: var(--bg-secondary);
       color: var(--text-secondary);
     }
-
-    /* 淡入動畫 */
     .fade-in {
       opacity: 0;
       transform: translateY(20px);
@@ -89,32 +84,22 @@
     @keyframes fadeIn {
       to { opacity: 1; transform: translateY(0); }
     }
-
-    /* 懸停效果 */
     .card:hover img {
       transform: scale(1.05);
       transition: transform 0.3s ease;
     }
-
-    /* 搜索框樣式 */
     #search-bar {
       transition: all 0.3s ease;
     }
-
-    /* 風格切換器樣式 */
     .theme-link.active {
       font-weight: bold;
       text-decoration: underline;
     }
-
-    /* 加載提示 */
     .loading {
       text-align: center;
       color: var(--text-secondary);
       padding: 2rem;
     }
-
-    /* 加載更多按鈕 */
     .load-more {
       display: block;
       margin: 1rem auto;
@@ -128,8 +113,6 @@
     .load-more:hover {
       opacity: 0.8;
     }
-
-    /* 圖片樣式 */
     .card img {
       width: 100%;
       height: 12rem;
@@ -139,7 +122,7 @@
   </style>
 </head>
 <body>
-  <!-- 導航欄 -->
+  <script src="config.js"></script>
   <nav class="fixed top-0 w-full z-10 py-4">
     <div class="container mx-auto px-4 flex justify-between items-center">
       <h1 class="text-2xl font-semibold">香港新聞網</h1>
@@ -161,21 +144,15 @@
         </div>
       </div>
     </div>
-    <!-- 搜索框 -->
     <div id="search-bar" class="hidden container mx-auto px-4 py-2">
       <input type="text" id="search" class="w-full p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" placeholder="搜尋新聞...">
     </div>
   </nav>
-
-  <!-- 主內容 -->
   <main class="container mx-auto mt-20 px-4">
-    <!-- 首頁（混合新聞） -->
     <section id="home" class="mb-16">
       <h2 class="text-4xl font-bold mb-6 fade-in">頭條新聞</h2>
       <div id="headline" class="card rounded-xl p-8 flex fade-in overflow-hidden"></div>
     </section>
-
-    <!-- 本地新聞（香港） -->
     <section id="local" class="mb-16">
       <h2 class="text-3xl font-bold mb-6 fade-in">香港本地新聞</h2>
       <div id="local-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -183,8 +160,6 @@
       </div>
       <button id="load-more-local" class="load-more hidden">加載更多</button>
     </section>
-
-    <!-- 國際新聞 -->
     <section id="world" class="mb-16">
       <h2 class="text-3xl font-bold mb-6 fade-in">國際新聞</h2>
       <div id="world-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -192,8 +167,6 @@
       </div>
       <button id="load-more-world" class="load-more hidden">加載更多</button>
     </section>
-
-    <!-- 財經新聞 -->
     <section id="finance" class="mb-16">
       <h2 class="text-3xl font-bold mb-6 fade-in">財經新聞</h2>
       <div id="finance-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -202,8 +175,6 @@
       <button id="load-more-finance" class="load-more hidden">加載更多</button>
     </section>
   </main>
-
-  <!-- 頁腳 -->
   <footer class="py-8">
     <div class="container mx-auto px-4 text-center">
       <p>© 2025 香港新聞網。版權所有。新聞數據由 <a href="https://newsdata.io" class="underline accent">NewsData.io</a> 提供。</p>
@@ -217,9 +188,7 @@
       </div>
     </div>
   </footer>
-
   <script>
-    // 格式化日期和時間（香港時區）
     function formatDateTime(date) {
       return date.toLocaleString('zh-TW', {
         timeZone: 'Asia/Hong_Kong',
@@ -232,26 +201,22 @@
         hour12: false
       });
     }
-
-    // 更新當前時間
     function updateCurrentTime() {
       document.getElementById('current-time').textContent = formatDateTime(new Date());
     }
     setInterval(updateCurrentTime, 1000);
     updateCurrentTime();
-
-    // 儲存分頁狀態
+    const apiKey = window.AppConfig.NEWS_API_KEY;
+    const baseUrl = 'https://newsdata.io/api/1/latest';
     const nextPages = {
       local: null,
       world: null,
       finance: null
     };
-
-    // 渲染新聞的通用函數
     function renderNews(containerId, articles, isHeadline = false, append = false) {
       const container = document.getElementById(containerId);
       if (!append) {
-        container.innerHTML = ''; // 清除加載提示
+        container.innerHTML = '';
       }
       if (articles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
@@ -261,7 +226,7 @@
       if (isHeadline) {
         const headline = articles[0];
         container.innerHTML = `
-          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400';">
+          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
             <h3 class="text-3xl font-semibold">${headline.title}</h3>
             <p class="mt-4 text-lg">${headline.description || '無摘要'}</p>
@@ -271,9 +236,14 @@
       } else {
         articles.slice(0, 6).forEach((article, index) => {
           const isLocal = containerId === 'local-news';
+          if (!article.image_url) {
+            console.warn(`No image_url for article: ${article.title}`);
+          } else if (article.image_url.includes('yimg.com')) {
+            console.log(`Yahoo image detected: ${article.image_url}`);
+          }
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-              <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.src='https://via.placeholder.com/300x200';">
+              <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.src='https://via.placeholder.com/300x200'; console.warn('Failed to load image: ${article.image_url}');">
               <h3 class="text-xl font-semibold">${article.title}</h3>
               ${isLocal ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
               <p class="mt-2">${article.description || '無摘要'}</p>
@@ -284,14 +254,12 @@
         document.getElementById(`load-more-${containerId.split('-')[0]}`).classList.remove('hidden');
       }
     }
-
-    // 獲取新聞的通用函數
     async function fetchNews(category = '', containerId, isHeadline = false, append = false, fallback = false) {
       const cacheKey = `news_${category || 'headline'}_${fallback}`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 5 * 60 * 1000) { // 5 分鐘緩存
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
           renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) {
             nextPages[containerId.split('-')[0]] = data.nextPage;
@@ -300,18 +268,16 @@
         }
       }
       try {
-        const response = await fetch('https://news-backend.vercel.app/news'); // 替換為你的後端 URL
+        const url = category === 'local' && !fallback
+          ? `${baseUrl}?apikey=${apiKey}&language=zh&category=local&country=hk&q=香港`
+          : `${baseUrl}?apikey=${apiKey}&language=zh${category ? `&category=${category}` : ''}${fallback ? '' : '&country=hk'}${nextPages[containerId.split('-')[0]] ? `&page=${nextPages[containerId.split('-')[0]]}` : ''}`;
+        const response = await fetch(url);
         const data = await response.json();
-        let results;
-        if (containerId === 'headline') results = data.headline.results;
-        else if (containerId === 'local-news') results = data.local.results;
-        else if (containerId === 'world-news') results = data.world.results;
-        else if (containerId === 'finance-news') results = data.finance.results;
-        if (results && results.length > 0) {
-          localStorage.setItem(cacheKey, JSON.stringify({ data: { results }, timestamp: Date.now() }));
-          renderNews(containerId, results, isHeadline, append);
-          if (!isHeadline && data[containerId.split('-')[0]].nextPage) {
-            nextPages[containerId.split('-')[0]] = data[containerId.split('-')[0]].nextPage;
+        if (data.status === 'success' && data.results.length > 0) {
+          localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+          renderNews(containerId, data.results, isHeadline, append);
+          if (!isHeadline && data.nextPage) {
+            nextPages[containerId.split('-')[0]] = data.nextPage;
           }
           if (isHeadline) {
             document.getElementById('last-update').textContent = formatDateTime(new Date());
@@ -326,26 +292,18 @@
         renderNews(containerId, [], isHeadline);
       }
     }
-
-    // 加載更多新聞
     function loadMore(category, containerId) {
       fetchNews(category, containerId, false, true);
     }
-
-    // 初始化新聞
     fetchNews('', 'headline', true);
     fetchNews('local', 'local-news');
     fetchNews('world', 'world-news');
     fetchNews('business', 'finance-news');
-
-    // 加載更多按鈕事件
     ['local', 'world', 'finance'].forEach(category => {
       document.getElementById(`load-more-${category}`).addEventListener('click', () => {
         loadMore(category, `${category}-news`);
       });
     });
-
-    // 平滑滾動
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -354,8 +312,6 @@
         });
       });
     });
-
-    // 搜索功能
     const searchToggle = document.getElementById('search-toggle');
     const searchBar = document.getElementById('search-bar');
     searchToggle.addEventListener('click', () => {
@@ -364,7 +320,6 @@
         document.getElementById('search').focus();
       }
     });
-
     document.getElementById('search').addEventListener('input', function (e) {
       const query = e.target.value.toLowerCase();
       const sections = ['local-news', 'world-news', 'finance-news'];
@@ -377,8 +332,6 @@
         });
       });
     });
-
-    // 風格切換與記錄
     const themeLinks = document.querySelectorAll('.theme-link');
     const savedTheme = localStorage.getItem('theme') || 'apple';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -387,7 +340,6 @@
         link.classList.add('active');
       }
     });
-
     themeLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
