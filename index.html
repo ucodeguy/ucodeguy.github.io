@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="香港新聞網提供最新的香港本地、國際和財經新聞">
-  <meta name="keywords" content="香港新聞, 本地新聞, 財經新聞, 國際新聞">
+  <meta name="description" content="香港新聞網提供最新的香港本地、國際、財經及主要地區新聞">
+  <meta name="keywords" content="香港新聞, 本地新聞, 財經新聞, 國際新聞, 地區新聞">
   <title>香港新聞網</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -152,6 +152,14 @@
         margin-top: 1rem;
       }
     }
+    #regional .region-group {
+      margin-bottom: 2rem;
+    }
+    #regional .region-group h4 {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -165,6 +173,7 @@
           <li><a href="#local" class="hover:accent transition">本地</a></li>
           <li><a href="#world" class="hover:accent transition">國際</a></li>
           <li><a href="#finance" class="hover:accent transition">財經</a></li>
+          <li><a href="#regional" class="hover:accent transition">主要地區新聞</a></li>
         </ul>
         <div class="flex items-center space-x-4">
           <button id="search-toggle" class="hover:accent">
@@ -207,6 +216,12 @@
       </div>
       <button id="load-more-finance" class="load-more hidden">加載更多</button>
     </section>
+    <section id="regional" class="mb-16">
+      <h2 class="text-3xl font-bold mb-6 fade-in">主要地區新聞</h2>
+      <div id="regional-news" class="grid grid-cols-1 gap-6">
+        <div class="loading">加載中...</div>
+      </div>
+    </section>
   </main>
   <footer class="py-8">
     <div class="container mx-auto px-4 text-center">
@@ -222,13 +237,24 @@
     </div>
   </footer>
   <script>
-    // 來源 logo 映射（示例，需根據實際來源更新）
+    // 來源 logo 映射
     const sourceLogos = {
       'scmp': 'https://via.placeholder.com/150?text=SCMP',
       'rthk': 'https://via.placeholder.com/150?text=RTHK',
       'hk01': 'https://via.placeholder.com/150?text=HK01',
-      // 添加更多來源，例如：'source_id': 'https://cdn.example.com/logo.png'
+      'yahoo': 'https://via.placeholder.com/150?text=Yahoo',
       'default': 'https://via.placeholder.com/300x200?text=News'
+    };
+
+    // 地區映射
+    const regions = {
+      '日本': 'jp',
+      '台灣': 'tw',
+      '韓國': 'kr',
+      '新加坡': 'sg',
+      '美國': 'us',
+      '英國': 'gb',
+      '中國': 'cn'
     };
 
     // 繁簡字元集
@@ -307,10 +333,10 @@
     }
 
     // 渲染新聞
-    function renderNews(containerId, articles, isHeadline = false, append = false) {
+    function renderNews(containerId, articles, isHeadline = false, append = false, region = null) {
       const container = document.getElementById(containerId);
       if (!append) container.innerHTML = '';
-      const category = isHeadline ? '頭條' : containerId.split('-')[0];
+      const category = isHeadline ? '頭條' : region ? region : containerId.split('-')[0];
 
       // 從 localStorage 獲取已閱讀標題
       let seenTitles = new Set(JSON.parse(localStorage.getItem('seenTitles') || '[]'));
@@ -325,7 +351,7 @@
           console.log(`Filtered out article due to time: ${article.title}, pubDate: ${article.pubDate}`);
           return false;
         }
-        if (!validateCategory(article, category)) {
+        if (!region && !validateCategory(article, category)) {
           console.log(`Filtered out article due to category: ${article.title}`);
           return false;
         }
@@ -344,7 +370,7 @@
       // 渲染
       if (sortedArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">無法加載，請檢查網絡或稍後重試</div>';
-        document.getElementById(`load-more-${category}`)?.classList.add('hidden');
+        if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
         return;
       }
       if (isHeadline) {
@@ -352,12 +378,34 @@
         const normalizedTitle = headline.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
         seenTitles.add(normalizedTitle);
         const source = headline.source_id || headline.source_name || '未知來源';
+        const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
         container.innerHTML = `
-          <img src="${headline.image_url || sourceLogos['default']}" alt="${headline.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${headline.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${headline.image_url}');">
+          <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (headline.image_url || sourceLogos['default'])}" alt="${headline.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${headline.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
             <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${headline.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
             <p class="mt-4">${headline.description || '無摘要'}</p>
             <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+          </div>
+        `;
+      } else if (region) {
+        const regionArticles = sortedArticles.slice(0, 3);
+        container.innerHTML += `
+          <div class="region-group">
+            <h4 class="fade-in">${region}</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${regionArticles.map((article, index) => {
+                const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
+                seenTitles.add(normalizedTitle);
+                const source = article.source_id || article.source_name || '未知來源';
+                return `
+                  <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
+                    <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
+                    <p class="mt-2">${article.description || '無摘要'}</p>
+                    <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
         `;
       } else {
@@ -367,10 +415,11 @@
           seenTitles.add(normalizedTitle);
           const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
           const source = article.source_id || article.source_name || '未知來源';
+          const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
           if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-              <img src="${article.image_url || sourceLogos['default']}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
+              <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
               <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
               ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
               <p class="mt-2">${article.description || '無摘要'}</p>
@@ -384,7 +433,7 @@
       localStorage.setItem('seenTitles', JSON.stringify([...seenTitles].slice(0, 100)));
     }
 
-    // 獲取新聞
+    // 獲取分類新聞
     async function fetchNews(category = '', containerId, isHeadline = false, append = false, fallback = false) {
       const cacheKey = `news_${category || 'headline'}_${fallback}`;
       const cached = localStorage.getItem(cacheKey);
@@ -446,6 +495,46 @@
       }
     }
 
+    // 獲取地區新聞
+    async function fetchRegionalNews() {
+      const container = document.getElementById('regional-news');
+      container.innerHTML = '';
+      for (const [region, countryCode] of Object.entries(regions)) {
+        const cacheKey = `news_regional_${region}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < 3 * 60 * 1000) {
+              console.log(`Using cached data for ${region}`);
+              renderNews('regional-news', data.results, false, true, region);
+              continue;
+            }
+          } catch (error) {
+            console.warn(`Invalid cache for ${cacheKey}, clearing cache`, error);
+            localStorage.removeItem(cacheKey);
+          }
+        }
+        try {
+          const url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh&country=${countryCode}`;
+          console.log(`Fetching regional news: ${url}`);
+          const response = await fetch(url);
+          const data = await response.json();
+          console.log(`API response for ${region}:`, data);
+          if (data.status === 'success' && data.results && data.results.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+            renderNews('regional-news', data.results, false, true, region);
+          } else {
+            console.warn(`No results for ${region}`);
+            renderNews('regional-news', [], false, true, region);
+          }
+        } catch (error) {
+          console.error(`Error fetching ${region} news:`, error);
+          renderNews('regional-news', [], false, true, region);
+        }
+      }
+    }
+
     // 加載更多
     function loadMore(category, containerId) {
       fetchNews(category, containerId, false, true);
@@ -456,6 +545,7 @@
     fetchNews('local', 'local-news');
     fetchNews('world', 'world-news');
     fetchNews('business', 'finance-news');
+    fetchRegionalNews();
 
     // 加載更多事件
     ['local', 'world', 'finance'].forEach(category => {
@@ -480,10 +570,10 @@
     });
     document.getElementById('search').addEventListener('input', e => {
       const query = e.target.value.toLowerCase();
-      ['local-news', 'world-news', 'finance-news'].forEach(sectionId => {
+      ['local-news', 'world-news', 'finance-news', 'regional-news'].forEach(sectionId => {
         document.querySelectorAll(`#${sectionId} .card`).forEach(article => {
           const title = article.querySelector('h3').textContent.toLowerCase();
-          const description = article.querySelector('p').textContent.toLowerCase();
+          const description = article.querySelector('p')?.textContent.toLowerCase() || '';
           article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
         });
       });
