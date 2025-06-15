@@ -265,9 +265,7 @@
     // 分類驗證
     function validateCategory(article, category) {
       const text = (article.title + (article.description || '')).toLowerCase();
-      if (category === 'local') {
-        return true; // 僅依賴 country=hk
-      } else if (category === 'world') {
+      if (category === 'local' || category === 'world') {
         return true; // 無限制
       } else if (category === 'finance') {
         return !text.includes('天氣') && !text.includes('颱風');
@@ -282,7 +280,11 @@
         return false;
       }
       try {
-        const articleDate = new Date(pubDate);
+        // 兼容多種日期格式
+        let articleDate = new Date(pubDate);
+        if (isNaN(articleDate.getTime())) {
+          articleDate = new Date(pubDate.replace(' ', 'T'));
+        }
         if (isNaN(articleDate.getTime())) {
           console.warn(`Invalid pubDate: ${pubDate}`);
           return false;
@@ -305,18 +307,14 @@
       // 從 localStorage 獲取已閱讀標題
       let seenTitles = new Set(JSON.parse(localStorage.getItem('seenTitles') || '[]'));
 
-      // 過濾 Yahoo.com 和時間範圍
+      // 過濾文章
       const filteredArticles = articles.filter(article => {
-        if (!article.link) {
-          console.warn(`No link for article: ${article.title}`);
+        if (!article.title || !article.link) {
+          console.warn(`Missing title or link for article:`, article);
           return false;
         }
         if (!isWithin48Hours(article.pubDate)) {
           console.log(`Filtered out article due to time: ${article.title}, pubDate: ${article.pubDate}`);
-          return false;
-        }
-        if (article.link.toLowerCase().includes('yahoo.com')) {
-          console.log(`Filtered out Yahoo.com article: ${article.title}`);
           return false;
         }
         if (!validateCategory(article, category)) {
@@ -337,7 +335,7 @@
 
       // 渲染
       if (sortedArticles.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-500">暫無新聞，請稍後重試</div>';
+        container.innerHTML = '<div class="text-center text-gray-500">無法加載，請檢查網絡或稍後重試</div>';
         document.getElementById(`load-more-${category}`)?.classList.add('hidden');
         return;
       }
@@ -383,7 +381,7 @@
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < 5 * 60 * 1000) {
+          if (Date.now() - timestamp < 3 * 60 * 1000) {
             console.log(`Using cached data for ${category || 'headline'}`);
             renderNews(containerId, data.results, isHeadline, append);
             if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
@@ -395,15 +393,16 @@
         }
       }
       try {
-        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh&time_range=48h`;
+        // 移除 time_range，依賴前端過濾
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh`;
         if (isHeadline) {
           url += '&category=top&country=hk';
         } else if (category === 'local' && !fallback) {
-          url += `&category=local&country=hk&q=${encodeURIComponent('香港')}`;
+          url += '&category=local&country=hk';
         } else if (category === 'world') {
           url += '&category=world';
         } else if (category === 'business') {
-          url += `&category=business&q=${encodeURIComponent('-天氣 -颱風')}`;
+          url += '&category=business';
         } else if (fallback) {
           url += '&country=hk';
         }
@@ -415,7 +414,7 @@
         const data = await response.json();
         console.log(`API response for ${category || 'headline'}:`, data);
         if (data.status === 'success') {
-          if (data.results.length > 0) {
+          if (data.results && data.results.length > 0) {
             localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
             renderNews(containerId, data.results, isHeadline, append);
             if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
