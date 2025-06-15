@@ -1,14 +1,20 @@
 window.AppConfig = {
   NEWS_API_KEY: 'pub_002054ec6eaf4e20a595bdc8f6fd81db', // 請替換為有效 NewsData.io API 密鑰
   validSources: [
-    'scmp', 'hk01', 'rthk', 'yahoo', // 繁體中文
+    'scmp', 'hk01', // 香港現有
+    'mingpao', 'orientaldaily', 'hkecon', // 香港新增
+    'chinatimes', 'libertytimes', 'udn', // 台灣新增
     'nytimes', 'bbc', 'cnn', 'reuters' // 英文
   ],
   sourceLogos: {
     'scmp': 'https://via.placeholder.com/150?text=SCMP',
     'hk01': 'https://via.placeholder.com/150?text=HK01',
-    'rthk': 'https://via.placeholder.com/150?text=RTHK',
-    'yahoo': 'https://via.placeholder.com/150?text=Yahoo',
+    'mingpao': 'https://via.placeholder.com/150?text=Ming+Pao',
+    'orientaldaily': 'https://via.placeholder.com/150?text=Oriental+Daily',
+    'hkecon': 'https://via.placeholder.com/150?text=HK+Economic+Daily',
+    'chinatimes': 'https://via.placeholder.com/150?text=China+Times',
+    'libertytimes': 'https://via.placeholder.com/150?text=Liberty+Times',
+    'udn': 'https://via.placeholder.com/150?text=United+Daily+News',
     'nytimes': 'https://via.placeholder.com/150?text=NYT',
     'bbc': 'https://via.placeholder.com/150?text=BBC',
     'cnn': 'https://via.placeholder.com/150?text=CNN',
