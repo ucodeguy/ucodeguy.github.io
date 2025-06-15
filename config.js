@@ -5,6 +5,10 @@ window.AppConfig = {
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
     'hk01': 'https://via.placeholder.com/150?text=HK01',
     'yahoo': 'https://via.placeholder.com/150?text=Yahoo',
+    'nytimes': 'https://via.placeholder.com/150?text=NYT',
+    'bbc': 'https://via.placeholder.com/150?text=BBC',
+    'cnn': 'https://via.placeholder.com/150?text=CNN',
+    'reuters': 'https://via.placeholder.com/150?text=Reuters',
     'default': 'https://via.placeholder.com/300x200?text=News'
   },
   regions: {
