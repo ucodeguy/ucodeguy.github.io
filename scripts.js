@@ -114,7 +114,7 @@ const render = {
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞，可能原因：無近期數據、語言不符或API限制，請稍後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符或API限制，請稍後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -124,11 +124,10 @@ const render = {
       const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
       seenTitles.add(normalizedTitle);
       const source = article.source_id || article.source_name || '未知來源';
-      const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
       const isTrad = utils.isTraditionalChinese(article.title);
       const isEng = utils.isEnglish(article.title);
       container.innerHTML = `
-        <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
+        <img src="${article.image_url || sourceLogos[source.toLowerCase()] || sourceLogos['default']}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${article.source_id || 'default'}']; console.warn('Failed to load image: ${article.image_url}');">
         <div class="ml-6 flex-1">
           <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
             ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
@@ -173,13 +172,12 @@ const render = {
         seenTitles.add(normalizedTitle);
         const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
         const source = article.source_id || article.source_name || '未知來源';
-        const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
+        if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
         const isTrad = utils.isTraditionalChinese(article.title);
         const isEng = utils.isEnglish(article.title);
-        if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
         container.innerHTML += `
           <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-            <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
+            <img src="${article.image_url || sourceLogos[source.toLowerCase()] || sourceLogos['default']}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}']; console.warn('Failed to load image: ${article.image_url}');">
             <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
               ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
               ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">英文</span>'}
