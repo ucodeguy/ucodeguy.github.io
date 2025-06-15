@@ -78,7 +78,7 @@
     }
     .fade-in {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(10px);
       animation: fadeIn 0.6s ease-out forwards;
     }
     @keyframes fadeIn {
@@ -118,6 +118,36 @@
       height: 12rem;
       object-fit: cover;
       object-position: center;
+    }
+    #headline img {
+      width: 50%;
+      height: 16rem;
+      object-fit: cover;
+      object-position: center;
+      min-height: 16rem;
+    }
+    #headline h3 {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+    #headline p {
+      font-size: clamp(1rem, 3vw, 1.125rem);
+    }
+    #headline .ml-6 {
+      margin-left: clamp(1rem, 3vw, 1.5rem);
+    }
+    @media (max-width: 768px) {
+      #headline {
+        flex-direction: column;
+      }
+      #headline img {
+        width: 100%;
+        height: 12rem;
+        min-height: 12rem;
+      }
+      #headline .ml-6 {
+        margin-left: 0;
+        margin-top: 1rem;
+      }
     }
   </style>
 </head>
@@ -218,28 +248,28 @@
       if (!append) {
         container.innerHTML = '';
       }
-      if (articles.length === 0) {
+      const filteredArticles = articles.filter(article => !article.link.toLowerCase().includes('yahoo.com'));
+      console.log(`Filtered out ${articles.length - filteredArticles.length} Yahoo.com articles`);
+      if (filteredArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
-        document.getElementById(`load-more-${containerId.split('-')[0]}`).classList.add('hidden');
+        document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.add('hidden');
         return;
       }
       if (isHeadline) {
-        const headline = articles[0];
+        const headline = filteredArticles[0];
         container.innerHTML = `
-          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
+          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
-            <h3 class="text-3xl font-semibold">${headline.title}</h3>
-            <p class="mt-4 text-lg">${headline.description || '無摘要'}</p>
+            <h3 class="font-semibold">${headline.title}</h3>
+            <p class="mt-4">${headline.description || '無摘要'}</p>
             <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
           </div>
         `;
       } else {
-        articles.slice(0, 6).forEach((article, index) => {
+        filteredArticles.slice(0, 6).forEach((article, index) => {
           const isLocal = containerId === 'local-news';
           if (!article.image_url) {
             console.warn(`No image_url for article: ${article.title}`);
-          } else if (article.image_url.includes('yimg.com')) {
-            console.log(`Yahoo image detected: ${article.image_url}`);
           }
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
@@ -251,7 +281,7 @@
             </div>
           `;
         });
-        document.getElementById(`load-more-${containerId.split('-')[0]}`).classList.remove('hidden');
+        document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.remove('hidden');
       }
     }
     async function fetchNews(category = '', containerId, isHeadline = false, append = false, fallback = false) {
@@ -300,7 +330,7 @@
     fetchNews('world', 'world-news');
     fetchNews('business', 'finance-news');
     ['local', 'world', 'finance'].forEach(category => {
-      document.getElementById(`load-more-${category}`).addEventListener('click', () => {
+      document.getElementById(`load-more-${category}`)?.addEventListener('click', () => {
         loadMore(category, `${category}-news`);
       });
     });
