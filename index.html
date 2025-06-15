@@ -1,0 +1,142 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>香港新聞網</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans">
+  <!-- 導航欄 -->
+  <nav class="bg-blue-800 text-white p-4 sticky top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold">香港新聞網</h1>
+      <ul class="flex space-x-4">
+        <li><a href="#home" class="hover:underline">首頁</a></li>
+        <li><a href="#local" class="hover:underline">本地</a></li>
+        <li><a href="#world" class="hover:underline">國際</a></li>
+        <li><a href="#finance" class="hover:underline">財經</a></li>
+        <li><a href="#tech" class="hover:underline">科技</a></li>
+      </ul>
+      <div class="relative">
+        <input type="text" id="search" class="p-2 rounded text-black" placeholder="搜尋新聞...">
+        <i class="fas fa-search absolute right-2 top-3 text-gray-500"></i>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主內容 -->
+  <main class="container mx-auto mt-8 px-4">
+    <!-- 頭條區 -->
+    <section id="home" class="mb-12">
+      <h2 class="text-3xl font-bold mb-4">頭條新聞</h2>
+      <div class="bg-white p-6 rounded-lg shadow-md flex">
+        <img src="https://via.placeholder.com/300x200" alt="頭條圖片" class="w-1/3 rounded">
+        <div class="ml-4">
+          <h3 class="text-2xl font-semibold">香港科技展2025即將開幕</h3>
+          <p class="text-gray-600 mt-2">2025年6月15日 - 香港將舉辦年度科技展，聚焦AI與可持續發展...</p>
+          <a href="#news1" class="text-blue-600 hover:underline mt-4 inline-block">閱讀更多</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 新聞列表 -->
+    <section id="local" class="mb-12">
+      <h2 class="text-3xl font-bold mb-4">本地新聞</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-xl font-semibold">香港股市波動加劇</h3>
+          <p class="text-gray-600 mt-2">受到中美貿易緊張影響，恒生指數下跌...</p>
+          <a href="#news2" class="text-blue-600 hover:underline mt-4 inline-block">閱讀更多</a>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-xl font-semibold">港鐵服務調整</h3>
+          <p class="text-gray-600 mt-2">港鐵宣布部分線路將延長服務時間...</p>
+          <a href="#news3" class="text-blue-600 hover:underline mt-4 inline-block">閱讀更多</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 財經新聞 -->
+    <section id="finance" class="mb-12">
+      <h2 class="text-3xl font-bold mb-4">財經新聞</h2>
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h3 class="text-xl font-semibold">CATL香港上市表現強勁</h3>
+        <p class="text-gray-600 mt-2">電池巨頭CATL在香港上市首日股價上漲16%...</p>
+        <a href="#news4" class="text-blue-600 hover:underline mt-4 inline-block">閱讀更多</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- 頁腳 -->
+  <footer class="bg-gray-800 text-white p-4 mt-12">
+    <div class="container mx-auto text-center">
+      <p>© 2025 香港新聞網。版權所有。</p>
+      <p class="mt-2">聯繫我們 | 隱私政策 | 使用條款</p>
+    </div>
+  </footer>
+
+  <script>
+    // 平滑滾動
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector(this.getAttribute('href')).scrollIntoView({
+          behavior: 'smooth'
+        });
+      });
+    });
+
+    // 簡單搜索功能
+    document.getElementById('search').addEventListener('input', function (e) {
+      const query = e.target.value.toLowerCase();
+      const articles = document.querySelectorAll('.bg-white');
+      articles.forEach(article => {
+        const title = article.querySelector('h3').textContent.toLowerCase();
+        const content = article.querySelector('p').textContent.toLowerCase();
+        article.style.display = (title.includes(query) || content.includes(query)) ? 'block' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>
