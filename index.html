@@ -116,13 +116,13 @@
     .card img {
       width: 100%;
       height: 12rem;
-      object-fit: cover;
+      object-fit: contain;
       object-position: center;
     }
     #headline img {
       width: 50%;
       height: 16rem;
-      object-fit: cover;
+      object-fit: contain;
       object-position: center;
       min-height: 16rem;
     }
@@ -222,6 +222,15 @@
     </div>
   </footer>
   <script>
+    // 來源 logo 映射（示例，需根據實際來源更新）
+    const sourceLogos = {
+      'scmp': 'https://via.placeholder.com/150?text=SCMP',
+      'rthk': 'https://via.placeholder.com/150?text=RTHK',
+      'hk01': 'https://via.placeholder.com/150?text=HK01',
+      // 添加更多來源，例如：'source_id': 'https://cdn.example.com/logo.png'
+      'default': 'https://via.placeholder.com/300x200?text=News'
+    };
+
     // 繁簡字元集
     const traditionalChars = new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']);
     const simplifiedChars = new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发']);
@@ -266,11 +275,11 @@
     function validateCategory(article, category) {
       const text = (article.title + (article.description || '')).toLowerCase();
       if (category === 'local' || category === 'world') {
-        return true; // 無限制
+        return true;
       } else if (category === 'finance') {
         return !text.includes('天氣') && !text.includes('颱風');
       }
-      return true; // 頭條無限制
+      return true;
     }
 
     // 驗證過去 48 小時
@@ -280,7 +289,6 @@
         return false;
       }
       try {
-        // 兼容多種日期格式
         let articleDate = new Date(pubDate);
         if (isNaN(articleDate.getTime())) {
           articleDate = new Date(pubDate.replace(' ', 'T'));
@@ -343,10 +351,11 @@
         const headline = sortedArticles[0];
         const normalizedTitle = headline.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
         seenTitles.add(normalizedTitle);
+        const source = headline.source_id || headline.source_name || '未知來源';
         container.innerHTML = `
-          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
+          <img src="${headline.image_url || sourceLogos['default']}" alt="${headline.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${headline.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
-            <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${headline.title}</h3>
+            <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${headline.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
             <p class="mt-4">${headline.description || '無摘要'}</p>
             <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
           </div>
@@ -357,11 +366,12 @@
           const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
           seenTitles.add(normalizedTitle);
           const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
+          const source = article.source_id || article.source_name || '未知來源';
           if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-              <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.src='https://via.placeholder.com/300x200'; console.warn('Failed to load image: ${article.image_url}');">
-              <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title}</h3>
+              <img src="${article.image_url || sourceLogos['default']}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
+              <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span></h3>
               ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
               <p class="mt-2">${article.description || '無摘要'}</p>
               <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
@@ -393,7 +403,6 @@
         }
       }
       try {
-        // 移除 time_range，依賴前端過濾
         let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh`;
         if (isHeadline) {
           url += '&category=top&country=hk';
