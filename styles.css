@@ -53,6 +53,11 @@ nav {
 .card {
   background: var(--card-bg);
   box-shadow: var(--shadow);
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
 }
 
 a.accent {
@@ -145,6 +150,13 @@ footer {
 
 .read {
   color: #6b7280 !important;
+}
+
+/* Language Tags */
+.text-red-500 {
+  background-color: rgba(239, 68, 68, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* Responsive */
