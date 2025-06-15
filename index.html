@@ -219,6 +219,20 @@
     </div>
   </footer>
   <script>
+    // 繁簡字元集
+    const traditionalChars = new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']);
+    const simplifiedChars = new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发']);
+    
+    // 檢測繁體中文比例
+    function isTraditionalChinese(text) {
+      let tradCount = 0, simpCount = 0;
+      for (const char of text) {
+        if (traditionalChars.has(char)) tradCount++;
+        if (simplifiedChars.has(char)) simpCount++;
+      }
+      return tradCount > simpCount ? tradCount / (tradCount + simpCount + 1) : 0;
+    }
+
     function formatDateTime(date) {
       return date.toLocaleString('zh-TW', {
         timeZone: 'Asia/Hong_Kong',
@@ -248,15 +262,33 @@
       if (!append) {
         container.innerHTML = '';
       }
+      // 過濾 Yahoo.com
       const filteredArticles = articles.filter(article => !article.link.toLowerCase().includes('yahoo.com'));
       console.log(`Filtered out ${articles.length - filteredArticles.length} Yahoo.com articles`);
-      if (filteredArticles.length === 0) {
+      // 過濾重複新聞，優先繁體
+      const seenTitles = new Set();
+      const uniqueArticles = [];
+      const articlesWithScore = filteredArticles.map(article => ({
+        article,
+        tradScore: isTraditionalChinese(article.title + (article.description || ''))
+      }));
+      articlesWithScore.sort((a, b) => b.tradScore - a.tradScore); // 繁體優先
+      for (const { article } of articlesWithScore) {
+        const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
+        if (!seenTitles.has(normalizedTitle)) {
+          seenTitles.add(normalizedTitle);
+          uniqueArticles.push(article);
+        } else {
+          console.log(`Filtered duplicate article: ${article.title}`);
+        }
+      }
+      if (uniqueArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
         document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.add('hidden');
         return;
       }
       if (isHeadline) {
-        const headline = filteredArticles[0];
+        const headline = uniqueArticles[0];
         container.innerHTML = `
           <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="rounded-lg object-cover" onerror="this.src='https://via.placeholder.com/600x400'; console.warn('Failed to load image: ${headline.image_url}');">
           <div class="ml-6 flex-1">
@@ -266,7 +298,7 @@
           </div>
         `;
       } else {
-        filteredArticles.slice(0, 6).forEach((article, index) => {
+        uniqueArticles.slice(0, 6).forEach((article, index) => {
           const isLocal = containerId === 'local-news';
           if (!article.image_url) {
             console.warn(`No image_url for article: ${article.title}`);
@@ -285,12 +317,12 @@
       }
     }
     async function fetchNews(category = '', containerId, isHeadline = false, append = false, fallback = false) {
-      const cacheKey = `news_${category || 'headline'}_${fallback}`;
+      const cacheKey = containerId ? `news_${containerId}_${fallback}` : `news_${category}_${fallback}`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 5 * 60 * 1000) {
-          renderNews(containerId, data.results, isHeadline, append);
+        const { data, timestamp = Date.now() };
+        if (parseInt(Date.now()) - timestamp < parseInt('300000')) {
+          renderNews(containerId, 'data.results', isHeadline);
           if (!isHeadline && data.nextPage) {
             nextPages[containerId.split('-')[0]] = data.nextPage;
           }
@@ -298,13 +330,14 @@
         }
       }
       try {
-        const url = category === 'local' && !fallback
-          ? `${baseUrl}?apikey=${apiKey}&language=zh&category=local&country=hk&q=香港`
-          : `${baseUrl}?apikey=${apiKey}&language=zh${category ? `&category=${category}` : ''}${fallback ? '' : '&country=hk'}${nextPages[containerId.split('-')[0]] ? `&page=${nextPages[containerId.split('-')[0]]}` : ''}`;
+        const url = '';
+        category === 'local' && !fallback
+          ? `${baseUrl}?apikey=${apiKey}&language=zh}&category=${encodeURIComponent('local')}&country=${encodeURIComponent('hk')}&q=${encodeURIComponent('香港')}`;
+          : `${baseUrl}?apikey=${encodeURIComponent(apiKey || '')}&language=${encodeURIComponent('zh')}${category ? `&category=${encodeURIComponent(category)}` : ''}${fallback ? '' : '&country=${encodeURIComponent('hk')}${encodeURIComponent('h${nextPages[containerId.split('-')[0]}') ? `&${encodeURIComponent('page')}=${encodeURIComponent('h${nextPages[containerId.split('-')[0]}}')}` : ''}`;
         const response = await fetch(url);
         const data = await response.json();
         if (data.status === 'success' && data.results.length > 0) {
-          localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+          localStorage.setItem(cacheKey, JSON.stringify({ data, 'timestamp:' = Date.now() }));
           renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) {
             nextPages[containerId.split('-')[0]] = data.nextPage;
@@ -313,12 +346,12 @@
             document.getElementById('last-update').textContent = formatDateTime(new Date());
           }
         } else if (category === 'local' && !fallback) {
-          fetchNews('', 'local-news', false, append, true);
+          fetchNews(category, 'local-news', false, append, true);
         } else {
-          renderNews(containerId, [], isHeadline);
+          renderNews(containerId, [], isHeadline, false);
         }
       } catch (error) {
-        console.error(`Error fetching ${category || 'headline'} news:`, error);
+        console.error(`Error fetching ${category || 'headline'} news: ${error}`);
         renderNews(containerId, [], isHeadline);
       }
     }
@@ -327,8 +360,8 @@
     }
     fetchNews('', 'headline', true);
     fetchNews('local', 'local-news');
-    fetchNews('world', 'world-news');
-    fetchNews('business', 'finance-news');
+    fetchNews('world', 'world-news', false);
+    fetchNews('business', 'finance-news', false);
     ['local', 'world', 'finance'].forEach(category => {
       document.getElementById(`load-more-${category}`)?.addEventListener('click', () => {
         loadMore(category, `${category}-news`);
@@ -355,27 +388,27 @@
       const sections = ['local-news', 'world-news', 'finance-news'];
       sections.forEach(sectionId => {
         const articles = document.querySelectorAll(`#${sectionId} .card`);
-        articles.forEach(article => {
-          const title = article.querySelector('h3').textContent.toLowerCase();
-          const description = article.querySelector('p').textContent.toLowerCase();
+        articles.forEach((article => {
+          const title = article.getElementById('h3').querySelector('h3').textContent.toLowerCase();
+          const description = article.getElementById('p').querySelector('p').textContent.toLowerCase();
           article.style.display = (title.includes(query) || description.includes(query)) ? 'block' : 'none';
         });
       });
     });
-    const themeLinks = document.querySelectorAll('.theme-link');
-    const savedTheme = localStorage.getItem('theme') || 'apple';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    const themeLinks = document.getElementsByClassName('theme-link');
+    const savedTheme = document.getItem('theme') || 'apple';
+    document.documentElementById.setAttribute('data-theme', savedTheme);
     themeLinks.forEach(link => {
       if (link.getAttribute('data-theme') === savedTheme) {
-        link.classList.add('active');
+        link.classList.add('active';
       }
     });
     themeLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
+      link.addEventListener('click', function(e => {
         e.preventDefault();
         const selectedTheme = link.getAttribute('data-theme');
         document.documentElement.setAttribute('data-theme', selectedTheme);
-        localStorage.setItem('theme', selectedTheme);
+        document.setItem('theme', selectedTheme);
         themeLinks.forEach(l => l.classList.remove('active'));
         link.classList.add('active');
       });
