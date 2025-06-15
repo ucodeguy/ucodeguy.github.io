@@ -96,6 +96,13 @@
       font-weight: bold;
       text-decoration: underline;
     }
+
+    /* 加載提示 */
+    .loading {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 2rem;
+    }
   </style>
 </head>
 <body>
@@ -129,7 +136,7 @@
 
   <!-- 主內容 -->
   <main class="container mx-auto mt-20 px-4">
-    <!-- 頭條區 -->
+    <!-- 首頁（混合新聞） -->
     <section id="home" class="mb-16">
       <h2 class="text-4xl font-bold mb-6 fade-in">頭條新聞</h2>
       <div id="headline" class="card rounded-xl p-8 flex fade-in overflow-hidden"></div>
@@ -138,7 +145,25 @@
     <!-- 本地新聞 -->
     <section id="local" class="mb-16">
       <h2 class="text-3xl font-bold mb-6 fade-in">本地新聞</h2>
-      <div id="local-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      <div id="local-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="loading">加載中...</div>
+      </div>
+    </section>
+
+    <!-- 國際新聞 -->
+    <section id="world" class="mb-16">
+      <h2 class="text-3xl font-bold mb-6 fade-in">國際新聞</h2>
+      <div id="world-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="loading">加載中...</div>
+      </div>
+    </section>
+
+    <!-- 財經新聞 -->
+    <section id="finance" class="mb-16">
+      <h2 class="text-3xl font-bold mb-6 fade-in">財經新聞</h2>
+      <div id="finance-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="loading">加載中...</div>
+      </div>
     </section>
   </main>
 
@@ -183,42 +208,63 @@
     const apiKey = '你的NewsData_API密鑰'; // 替換為你的 API 密鑰
     const baseUrl = 'https://newsdata.io/api/1/latest';
 
-    // 獲取新聞並更新最後更新時間
-    fetch(`${baseUrl}?apikey=${apiKey}&language=zh&country=hk`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'success' && data.results.length > 0) {
-          // 更新最後更新時間
-          document.getElementById('last-update').textContent = formatDateTime(new Date());
-
-          // 渲染頭條新聞
-          const headline = data.results[0];
-          document.getElementById('headline').innerHTML = `
-            <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover">
-            <div class="ml-6 flex-1">
-              <h3 class="text-3xl font-semibold">${headline.title}</h3>
-              <p class="mt-4 text-lg">${headline.description || '無摘要'}</p>
-              <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+    // 渲染新聞的通用函數
+    function renderNews(containerId, articles, isHeadline = false) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = ''; // 清除加載提示
+      if (articles.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
+        return;
+      }
+      if (isHeadline) {
+        const headline = articles[0];
+        container.innerHTML = `
+          <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover">
+          <div class="ml-6 flex-1">
+            <h3 class="text-3xl font-semibold">${headline.title}</h3>
+            <p class="mt-4 text-lg">${headline.description || '無摘要'}</p>
+            <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+          </div>
+        `;
+      } else {
+        articles.slice(0, 6).forEach((article, index) => {
+          container.innerHTML += `
+            <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
+              <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4">
+              <h3 class="text-xl font-semibold">${article.title}</h3>
+              <p class="mt-2">${article.description || '無摘要'}</p>
+              <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
             </div>
           `;
+        });
+      }
+    }
 
-          // 渲染本地新聞
-          const localNewsContainer = document.getElementById('local-news');
-          data.results.slice(1, 7).forEach((article, index) => {
-            localNewsContainer.innerHTML += `
-              <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-                <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4">
-                <h3 class="text-xl font-semibold">${article.title}</h3>
-                <p class="mt-2">${article.description || '無摘要'}</p>
-                <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
-              </div>
-            `;
-          });
+    // 獲取新聞的通用函數
+    async function fetchNews(category = '', containerId, isHeadline = false) {
+      try {
+        const url = `${baseUrl}?apikey=${apiKey}&language=zh${category ? `&category=${category}` : ''}&country=hk`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.status === 'success' && data.results.length > 0) {
+          renderNews(containerId, data.results, isHeadline);
+          if (isHeadline) {
+            document.getElementById('last-update').textContent = formatDateTime(new Date());
+          }
         } else {
-          console.error('No news data available');
+          renderNews(containerId, [], isHeadline);
         }
-      })
-      .catch(error => console.error('Error fetching news:', error));
+      } catch (error) {
+        console.error(`Error fetching ${category || 'headline'} news:`, error);
+        renderNews(containerId, [], isHeadline);
+      }
+    }
+
+    // 加載所有新聞
+    fetchNews('', 'headline', true); // 首頁（混合新聞）
+    fetchNews('local', 'local-news'); // 本地新聞
+    fetchNews('world', 'world-news'); // 國際新聞
+    fetchNews('business', 'finance-news'); // 財經新聞
 
     // 平滑滾動
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -242,11 +288,14 @@
 
     document.getElementById('search').addEventListener('input', function (e) {
       const query = e.target.value.toLowerCase();
-      const articles = document.querySelectorAll('#local-news .card');
-      articles.forEach(article => {
-        const title = article.querySelector('h3').textContent.toLowerCase();
-        const description = article.querySelector('p').textContent.toLowerCase();
-        article.style.display = (title.includes(query) || description.includes(query)) ? 'block' : 'none';
+      const sections = ['local-news', 'world-news', 'finance-news'];
+      sections.forEach(sectionId => {
+        const articles = document.querySelectorAll(`#${sectionId} .card`);
+        articles.forEach(article => {
+          const title = article.querySelector('h3').textContent.toLowerCase();
+          const description = article.querySelector('p').textContent.toLowerCase();
+          article.style.display = (title.includes(query) || description.includes(query)) ? 'block' : 'none';
+        });
       });
     });
 
