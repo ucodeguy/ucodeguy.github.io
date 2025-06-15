@@ -6,51 +6,83 @@
   <title>香港新聞網</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* 模仿 Apple 的 San Francisco 字體 */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    /* 淡入動畫 */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* 懸停放大效果 */
+    .news-card:hover img {
+      transform: scale(1.05);
+      transition: transform 0.3s ease;
+    }
+    /* 導航欄透明效果 */
+    nav {
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+  </style>
 </head>
-<body class="bg-gray-100 font-sans">
-  <!-- 導航欄 -->
-  <nav class="bg-blue-800 text-white p-4 sticky top-0 z-10">
-    <div class="container mx-auto flex justify-between items-center">
-      <h1 class="text-2xl font-bold">香港新聞網</h1>
-      <div class="flex items-center space-x-4">
-        <ul class="flex space-x-4">
-          <li><a href="#home" class="hover:underline">首頁</a></li>
-          <li><a href="#local" class="hover:underline">本地</a></li>
-          <li><a href="#world" class="hover:underline">國際</a></li>
-          <li><a href="#finance" class="hover:underline">財經</a></li>
+<body class="bg-white text-gray-900">
+  <!-- 導航欄（Apple 風格） -->
+  <nav class="bg-white bg-opacity-80 border-b border-gray-200 py-4 fixed top-0 w-full z-10">
+    <div class="container mx-auto px-4 flex justify-between items-center">
+      <h1 class="text-2xl font-semibold text-gray-900">香港新聞網</h1>
+      <div class="flex items-center space-x-6">
+        <ul class="flex space-x-6 text-sm font-medium text-gray-700">
+          <li><a href="#home" class="hover:text-blue-600 transition">首頁</a></li>
+          <li><a href="#local" class="hover:text-blue-600 transition">本地</a></li>
+          <li><a href="#world" class="hover:text-blue-600 transition">國際</a></li>
+          <li><a href="#finance" class="hover:text-blue-600 transition">財經</a></li>
         </ul>
-        <div class="relative">
-          <input type="text" id="search" class="p-2 rounded text-black" placeholder="搜尋新聞...">
-          <i class="fas fa-search absolute right-2 top-3 text-gray-500"></i>
-        </div>
-        <div class="text-sm">
-          <p>當前時間: <span id="current-time"></span></p>
-          <p>最後更新: <span id="last-update">尚未更新</span></p>
+        <div class="flex items-center space-x-4">
+          <button id="search-toggle" class="text-gray-700 hover:text-blue-600">
+            <i class="fas fa-search"></i>
+          </button>
+          <div class="text-xs text-gray-600">
+            <p>當前時間: <span id="current-time"></span></p>
+            <p>最後更新: <span id="last-update">尚未更新</span></p>
+          </div>
         </div>
       </div>
+    </div>
+    <!-- 搜索框（隱藏，點擊放大鏡顯示） -->
+    <div id="search-bar" class="hidden container mx-auto px-4 py-2">
+      <input type="text" id="search" class="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900" placeholder="搜尋新聞...">
     </div>
   </nav>
 
   <!-- 主內容 -->
-  <main class="container mx-auto mt-8 px-4">
-    <!-- 頭條區 -->
-    <section id="home" class="mb-12">
-      <h2 class="text-3xl font-bold mb-4">頭條新聞</h2>
-      <div id="headline" class="bg-white p-6 rounded-lg shadow-md flex"></div>
+  <main class="container mx-auto mt-20 px-4">
+    <!-- 頭條區（Apple 風格） -->
+    <section id="home" class="mb-16">
+      <h2 class="text-4xl font-bold text-gray-900 mb-6 fade-in">頭條新聞</h2>
+      <div id="headline" class="bg-gray-50 rounded-xl shadow-sm p-8 flex fade-in overflow-hidden">
+        <!-- 內容由 JavaScript 動態填充 -->
+      </div>
     </section>
 
     <!-- 本地新聞 -->
-    <section id="local" class="mb-12">
-      <h2 class="text-3xl font-bold mb-4">本地新聞</h2>
+    <section id="local" class="mb-16">
+      <h2 class="text-3xl font-bold text-gray-900 mb-6 fade-in">本地新聞</h2>
       <div id="local-news" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </section>
   </main>
 
   <!-- 頁腳 -->
-  <footer class="bg-gray-800 text-white p-4 mt-12">
-    <div class="container mx-auto text-center">
-      <p>© 2025 香港新聞網。版權所有。新聞數據由 <a href="https://newsdata.io" class="underline">NewsData.io</a> 提供。</p>
-      <p class="mt-2">聯繫我們 | 隱私政策 | 使用條款</p>
+  <footer class="bg-gray-100 text-gray-600 py-8">
+    <div class="container mx-auto px-4 text-center">
+      <p>© 2025 香港新聞網。版權所有。新聞數據由 <a href="https://newsdata.io" class="underline hover:text-blue-600">NewsData.io</a> 提供。</p>
+      <p class="mt-2 text-sm">聯繫我們 | 隱私政策 | 使用條款</p>
     </div>
   </footer>
 
@@ -74,11 +106,11 @@
       const currentTimeElement = document.getElementById('current-time');
       currentTimeElement.textContent = formatDateTime(new Date());
     }
-    setInterval(updateCurrentTime, 1000); // 每秒更新
-    updateCurrentTime(); // 初始調用
+    setInterval(updateCurrentTime, 1000);
+    updateCurrentTime();
 
-    // 你的 NewsData.io API 密鑰
-    const apiKey = '你的NewsData_API密鑰'; // 替換為你的 API 密鑰
+    // NewsData.io API 密鑰
+    const apiKey = 'pub_002054ec6eaf4e20a595bdc8f6fd81db'; // 替換為你的 API 密鑰
     const baseUrl = 'https://newsdata.io/api/1/latest';
 
     // 獲取新聞並更新最後更新時間
@@ -94,22 +126,23 @@
           const headline = data.results[0];
           const headlineContainer = document.getElementById('headline');
           headlineContainer.innerHTML = `
-            <img src="${headline.image_url || 'https://via.placeholder.com/300x200'}" alt="${headline.title}" class="w-1/3 rounded">
-            <div class="ml-4">
-              <h3 class="text-2xl font-semibold">${headline.title}</h3>
-              <p class="text-gray-600 mt-2">${headline.description || '無摘要'}</p>
-              <a href="${headline.link}" class="text-blue-600 hover:underline mt-4 inline-block" target="_blank">閱讀更多</a>
+            <img src="${headline.image_url || 'https://via.placeholder.com/600x400'}" alt="${headline.title}" class="w-1/2 rounded-lg object-cover">
+            <div class="ml-6 flex-1">
+              <h3 class="text-3xl font-semibold text-gray-900">${headline.title}</h3>
+              <p class="text-gray-600 mt-4 text-lg">${headline.description || '無摘要'}</p>
+              <a href="${headline.link}" class="text-blue-600 hover:text-blue-800 mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
             </div>
           `;
 
           // 渲染本地新聞
           const localNewsContainer = document.getElementById('local-news');
-          data.results.slice(1, 7).forEach(article => {
+          data.results.slice(1, 7).forEach((article, index) => {
             localNewsContainer.innerHTML += `
-              <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="text-xl font-semibold">${article.title}</h3>
+              <div class="news-card bg-gray-50 rounded-xl shadow-sm p-6 fade-in" style="animation-delay: ${index * 0.1}s">
+                <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">${article.title}</h3>
                 <p class="text-gray-600 mt-2">${article.description || '無摘要'}</p>
-                <a href="${article.link}" class="text-blue-600 hover:underline mt-4 inline-block" target="_blank">閱讀更多</a>
+                <a href="${article.link}" class="text-blue-600 hover:text-blue-800 mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
               </div>
             `;
           });
@@ -129,10 +162,20 @@
       });
     });
 
-    // 搜索功能
+    // 搜索功能（點擊放大鏡顯示/隱藏）
+    const searchToggle = document.getElementById('search-toggle');
+    const searchBar = document.getElementById('search-bar');
+    searchToggle.addEventListener('click', () => {
+      searchBar.classList.toggle('hidden');
+      if (!searchBar.classList.contains('hidden')) {
+        document.getElementById('search').focus();
+      }
+    });
+
+    // 搜索過濾
     document.getElementById('search').addEventListener('input', function (e) {
       const query = e.target.value.toLowerCase();
-      const articles = document.querySelectorAll('#local-news .bg-white');
+      const articles = document.querySelectorAll('#local-news .news-card');
       articles.forEach(article => {
         const title = article.querySelector('h3').textContent.toLowerCase();
         const description = article.querySelector('p').textContent.toLowerCase();
