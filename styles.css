@@ -16,9 +16,7 @@
   --bg-secondary: #2c3e50;
   --text-primary: #ffffff;
   --text-secondary: #bdc3c7;
-  --accen
-
-t: #00cec9;
+  --accent: #00cec9;
   --nav-bg: rgba(44, 62, 80, 0.8);
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -140,12 +138,10 @@ footer {
 
 #headline h3 {
   font-size: clamp(1.5rem, 5vw, 2rem);
-  line-height: 1.4;
 }
 
 #headline p {
   font-size: clamp(1rem, 3vw, 1.125rem);
-  line-height: 1.6;
 }
 
 #headline .ml-6 {
@@ -156,17 +152,11 @@ footer {
   color: #6b7280 !important;
 }
 
-/* Translation Tags */
+/* Language Tags */
 .text-red-500 {
   background-color: rgba(239, 68, 68, 0.1);
   padding: 2px 6px;
   border-radius: 4px;
-}
-
-/* Bilingual Display */
-.card h3, .card p, #headline h3, #headline p {
-  line-height: 1.6;
-  margin-bottom: 0.5rem;
 }
 
 /* Responsive */
