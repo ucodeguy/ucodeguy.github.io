@@ -222,7 +222,7 @@
     // 繁簡字元集
     const traditionalChars = new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']);
     const simplifiedChars = new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发']);
-    
+
     // 檢測繁體中文比例
     function isTraditionalChinese(text) {
       let tradCount = 0, simpCount = 0;
@@ -233,6 +233,7 @@
       return tradCount > simpCount ? tradCount / (tradCount + simpCount + 1) : 0;
     }
 
+    // 格式化香港時間
     function formatDateTime(date) {
       return date.toLocaleString('zh-TW', {
         timeZone: 'Asia/Hong_Kong',
@@ -245,43 +246,46 @@
         hour12: false
       });
     }
+
+    // 更新當前時間
     function updateCurrentTime() {
       document.getElementById('current-time').textContent = formatDateTime(new Date());
     }
     setInterval(updateCurrentTime, 1000);
     updateCurrentTime();
+
+    // 初始化
     const apiKey = window.AppConfig.NEWS_API_KEY;
     const baseUrl = 'https://newsdata.io/api/1/latest';
-    const nextPages = {
-      local: null,
-      world: null,
-      finance: null
-    };
+    const nextPages = { local: null, world: null, finance: null };
+
+    // 渲染新聞
     function renderNews(containerId, articles, isHeadline = false, append = false) {
       const container = document.getElementById(containerId);
-      if (!append) {
-        container.innerHTML = '';
-      }
+      if (!append) container.innerHTML = '';
+
       // 過濾 Yahoo.com
       const filteredArticles = articles.filter(article => !article.link.toLowerCase().includes('yahoo.com'));
       console.log(`Filtered out ${articles.length - filteredArticles.length} Yahoo.com articles`);
+
       // 過濾重複新聞，優先繁體
       const seenTitles = new Set();
-      const uniqueArticles = [];
       const articlesWithScore = filteredArticles.map(article => ({
         article,
         tradScore: isTraditionalChinese(article.title + (article.description || ''))
       }));
-      articlesWithScore.sort((a, b) => b.tradScore - a.tradScore); // 繁體優先
-      for (const { article } of articlesWithScore) {
+      articlesWithScore.sort((a, b) => b.tradScore - a.tradScore);
+      const uniqueArticles = articlesWithScore.filter(({ article }) => {
         const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
-        if (!seenTitles.has(normalizedTitle)) {
-          seenTitles.add(normalizedTitle);
-          uniqueArticles.push(article);
-        } else {
+        if (seenTitles.has(normalizedTitle)) {
           console.log(`Filtered duplicate article: ${article.title}`);
+          return false;
         }
-      }
+        seenTitles.add(normalizedTitle);
+        return true;
+      }).map(({ article }) => article);
+
+      // 渲染
       if (uniqueArticles.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-500">暫無新聞</div>';
         document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.add('hidden');
@@ -300,9 +304,7 @@
       } else {
         uniqueArticles.slice(0, 6).forEach((article, index) => {
           const isLocal = containerId === 'local-news';
-          if (!article.image_url) {
-            console.warn(`No image_url for article: ${article.title}`);
-          }
+          if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
           container.innerHTML += `
             <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
               <img src="${article.image_url || 'https://via.placeholder.com/300x200'}" alt="${article.title}" class="w-full h-48 object-cover rounded-lg mb-4" onerror="this.src='https://via.placeholder.com/300x200'; console.warn('Failed to load image: ${article.image_url}');">
@@ -316,99 +318,102 @@
         document.getElementById(`load-more-${containerId.split('-')[0]}`)?.classList.remove('hidden');
       }
     }
+
+    // 獲取新聞
     async function fetchNews(category = '', containerId, isHeadline = false, append = false, fallback = false) {
-      const cacheKey = containerId ? `news_${containerId}_${fallback}` : `news_${category}_${fallback}`;
+      const cacheKey = `news_${category || 'headline'}_${fallback}`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        const { data, timestamp = Date.now() };
-        if (parseInt(Date.now()) - timestamp < parseInt('300000')) {
-          renderNews(containerId, 'data.results', isHeadline);
-          if (!isHeadline && data.nextPage) {
-            nextPages[containerId.split('-')[0]] = data.nextPage;
-          }
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          renderNews(containerId, data.results, isHeadline, append);
+          if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
           return;
         }
       }
       try {
-        const url = '';
-        category === 'local' && !fallback
-          ? `${baseUrl}?apikey=${apiKey}&language=zh}&category=${encodeURIComponent('local')}&country=${encodeURIComponent('hk')}&q=${encodeURIComponent('香港')}`;
-          : `${baseUrl}?apikey=${encodeURIComponent(apiKey || '')}&language=${encodeURIComponent('zh')}${category ? `&category=${encodeURIComponent(category)}` : ''}${fallback ? '' : '&country=${encodeURIComponent('hk')}${encodeURIComponent('h${nextPages[containerId.split('-')[0]}') ? `&${encodeURIComponent('page')}=${encodeURIComponent('h${nextPages[containerId.split('-')[0]}}')}` : ''}`;
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh`;
+        if (category === 'local' && !fallback) {
+          url += `&category=local&country=hk&q=${encodeURIComponent('香港')}`;
+        } else {
+          if (category) url += `&category=${encodeURIComponent(category)}`;
+          if (!fallback) url += '&country=hk';
+        }
+        if (nextPages[containerId.split('-')[0]] && append) {
+          url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
+        }
         const response = await fetch(url);
         const data = await response.json();
         if (data.status === 'success' && data.results.length > 0) {
-          localStorage.setItem(cacheKey, JSON.stringify({ data, 'timestamp:' = Date.now() }));
+          localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
           renderNews(containerId, data.results, isHeadline, append);
-          if (!isHeadline && data.nextPage) {
-            nextPages[containerId.split('-')[0]] = data.nextPage;
-          }
-          if (isHeadline) {
-            document.getElementById('last-update').textContent = formatDateTime(new Date());
-          }
+          if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
+          if (isHeadline) document.getElementById('last-update').textContent = formatDateTime(new Date());
         } else if (category === 'local' && !fallback) {
-          fetchNews(category, 'local-news', false, append, true);
+          fetchNews('', 'local-news', false, append, true);
         } else {
-          renderNews(containerId, [], isHeadline, false);
+          renderNews(containerId, [], isHeadline);
         }
       } catch (error) {
-        console.error(`Error fetching ${category || 'headline'} news: ${error}`);
+        console.error(`Error fetching ${category || 'headline'} news:`, error);
         renderNews(containerId, [], isHeadline);
       }
     }
+
+    // 加載更多
     function loadMore(category, containerId) {
       fetchNews(category, containerId, false, true);
     }
+
+    // 初始化新聞
     fetchNews('', 'headline', true);
     fetchNews('local', 'local-news');
-    fetchNews('world', 'world-news', false);
-    fetchNews('business', 'finance-news', false);
+    fetchNews('world', 'world-news');
+    fetchNews('business', 'finance-news');
+
+    // 加載更多事件
     ['local', 'world', 'finance'].forEach(category => {
-      document.getElementById(`load-more-${category}`)?.addEventListener('click', () => {
-        loadMore(category, `${category}-news`);
-      });
+      const button = document.getElementById(`load-more-${category}`);
+      if (button) button.addEventListener('click', () => loadMore(category, `${category}-news`));
     });
+
+    // 平滑滾動
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
+      anchor.addEventListener('click', e => {
         e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-          behavior: 'smooth'
-        });
+        document.querySelector(anchor.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
       });
     });
+
+    // 搜索功能
     const searchToggle = document.getElementById('search-toggle');
     const searchBar = document.getElementById('search-bar');
     searchToggle.addEventListener('click', () => {
       searchBar.classList.toggle('hidden');
-      if (!searchBar.classList.contains('hidden')) {
-        document.getElementById('search').focus();
-      }
+      if (!searchBar.classList.contains('hidden')) document.getElementById('search').focus();
     });
-    document.getElementById('search').addEventListener('input', function (e) {
+    document.getElementById('search').addEventListener('input', e => {
       const query = e.target.value.toLowerCase();
-      const sections = ['local-news', 'world-news', 'finance-news'];
-      sections.forEach(sectionId => {
-        const articles = document.querySelectorAll(`#${sectionId} .card`);
-        articles.forEach((article => {
-          const title = article.getElementById('h3').querySelector('h3').textContent.toLowerCase();
-          const description = article.getElementById('p').querySelector('p').textContent.toLowerCase();
-          article.style.display = (title.includes(query) || description.includes(query)) ? 'block' : 'none';
+      ['local-news', 'world-news', 'finance-news'].forEach(sectionId => {
+        document.querySelectorAll(`#${sectionId} .card`).forEach(article => {
+          const title = article.querySelector('h3').textContent.toLowerCase();
+          const description = article.querySelector('p').textContent.toLowerCase();
+          article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
         });
       });
     });
-    const themeLinks = document.getElementsByClassName('theme-link');
-    const savedTheme = document.getItem('theme') || 'apple';
-    document.documentElementById.setAttribute('data-theme', savedTheme);
+
+    // 風格切換
+    const themeLinks = document.querySelectorAll('.theme-link');
+    const savedTheme = localStorage.getItem('theme') || 'apple';
+    document.documentElement.setAttribute('data-theme', savedTheme);
     themeLinks.forEach(link => {
-      if (link.getAttribute('data-theme') === savedTheme) {
-        link.classList.add('active';
-      }
-    });
-    themeLinks.forEach(link => {
-      link.addEventListener('click', function(e => {
+      if (link.getAttribute('data-theme') === savedTheme) link.classList.add('active');
+      link.addEventListener('click', e => {
         e.preventDefault();
         const selectedTheme = link.getAttribute('data-theme');
         document.documentElement.setAttribute('data-theme', selectedTheme);
-        document.setItem('theme', selectedTheme);
+        localStorage.setItem('theme', selectedTheme);
         themeLinks.forEach(l => l.classList.remove('active'));
         link.classList.add('active');
       });
