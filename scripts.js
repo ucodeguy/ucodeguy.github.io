@@ -1,6 +1,7 @@
 const baseUrl = 'https://newsdata.io/api/1/latest';
 const nextPages = { local: null, world: null, finance: null };
-const { sourceLogos, regions, traditionalChars, simplifiedChars } = window.AppConfig;
+const { sourceLogos, regions, traditionalChars, simplifiedChars, GOOGLE_TRANSLATE_API_KEY } = window.AppConfig;
+const translationCache = JSON.parse(localStorage.getItem('translationCache') || '{}');
 
 // Utility Functions
 const utils = {
@@ -10,11 +11,42 @@ const utils = {
       if (traditionalChars.has(char)) tradCount++;
       if (simplifiedChars.has(char)) simpCount++;
     }
-    return tradCount > simpCount ? tradCount / (tradCount + simpCount + 1) : 0;
+    return tradCount > simpCount && tradCount > 5 ? tradCount / (tradCount + simpCount + 1) : 0;
   },
 
   isEnglish(text) {
-    return /^[A-Za-z0-9\s.,!?]+$/.test(text.replace(/[\u4e00-\u9fff]/g, '')) && text.length > 10;
+    const cleanText = text.replace(/[\u4e00-\u9fff]/g, '');
+    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 10;
+  },
+
+  async translateText(text, targetLang) {
+    const cacheKey = `${text.slice(0, 100)}:${targetLang}`;
+    if (translationCache[cacheKey] && Date.now() - translationCache[cacheKey].timestamp < 60 * 60 * 1000) {
+      console.log(`Using cached translation for ${cacheKey}`);
+      return translationCache[cacheKey].translated;
+    }
+    try {
+      const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(GOOGLE_TRANSLATE_API_KEY)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: text, target: targetLang, format: 'text' })
+      });
+      if (!response.ok) {
+        console.error(`Translation failed: ${response.status} ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.data && data.data.translations && data.data.translations[0]) {
+        const translated = data.data.translations[0].translatedText;
+        translationCache[cacheKey] = { translated, timestamp: Date.now() };
+        localStorage.setItem('translationCache', JSON.stringify(translationCache));
+        return translated;
+      }
+      throw new Error('Invalid translation response');
+    } catch (error) {
+      console.error(`Error translating to ${targetLang}:`, error);
+      return null;
+    }
   },
 
   formatDateTime(date) {
@@ -70,7 +102,7 @@ const utils = {
 
 // Render Functions
 const render = {
-  renderNews(containerId, articles, isHeadline = false, append = false, region = null) {
+  async renderNews(containerId, articles, isHeadline = false, append = false, region = null) {
     const container = document.getElementById(containerId);
     if (!append) container.innerHTML = '';
     const category = isHeadline ? '頭條' : region ? region : containerId.split('-')[0];
@@ -94,13 +126,26 @@ const render = {
     });
     console.log(`Filtered out ${articles.length - filteredArticles.length} articles for ${category}`);
 
-    const articlesWithScore = filteredArticles.map(article => ({
-      article,
-      tradScore: utils.isTraditionalChinese(article.title + (article.description || '')),
-      engScore: utils.isEnglish(article.title + (article.description || '')) ? 1 : 0
+    const articlesWithTranslations = await Promise.all(filteredArticles.map(async article => {
+      const isTrad = utils.isTraditionalChinese(article.title);
+      const isEng = utils.isEnglish(article.title);
+      let tradTitle = isTrad ? article.title : await utils.translateText(article.title, 'zh-TW');
+      let engTitle = isEng ? article.title : await utils.translateText(article.title, 'en');
+      let tradDesc = isTrad ? (article.description || '無摘要') : await utils.translateText(article.description || '無摘要', 'zh-TW');
+      let engDesc = isEng ? (article.description || '無摘要') : await utils.translateText(article.description || '無摘要', 'en');
+      return {
+        article,
+        tradTitle: tradTitle || (isTrad ? article.title : `${article.title} (翻譯失敗)`),
+        engTitle: engTitle || (isEng ? article.title : `${article.title} (翻譯失敗)`),
+        tradDesc: tradDesc || (isTrad ? (article.description || '無摘要') : `${article.description || '無摘要'} (翻譯失敗)`),
+        engDesc: engDesc || (isEng ? (article.description || '無摘要') : `${article.description || '無摘要'} (翻譯失敗)`),
+        tradScore: isTrad ? 1 : 0.5,
+        engScore: isEng ? 1 : 0.5
+      };
     }));
-    articlesWithScore.sort((a, b) => (b.tradScore + b.engScore) - (a.tradScore + a.engScore));
-    const sortedArticles = articlesWithScore.map(({ article }) => article);
+
+    articlesWithTranslations.sort((a, b) => (b.tradScore + b.engScore) - (a.tradScore + a.engScore));
+    const sortedArticles = articlesWithTranslations;
 
     if (sortedArticles.length === 0) {
       container.innerHTML = `<div class="text-center text-gray-500">無可用新聞，可能原因：無近期數據或API限制，請稍後重試</div>`;
@@ -109,23 +154,20 @@ const render = {
     }
 
     if (isHeadline) {
-      const headline = sortedArticles[0];
-      const normalizedTitle = headline.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
+      const { article, tradTitle, engTitle, tradDesc, engDesc } = sortedArticles[0];
+      const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
       seenTitles.add(normalizedTitle);
-      const source = headline.source_id || headline.source_name || '未知來源';
+      const source = article.source_id || article.source_name || '未知來源';
       const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
-      const isTrad = utils.isTraditionalChinese(headline.title);
-      const isEng = utils.isEnglish(headline.title);
       container.innerHTML = `
-        <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (headline.image_url || sourceLogos['default'])}" alt="${headline.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${headline.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${headline.image_url}');">
+        <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
         <div class="ml-6 flex-1">
           <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-            ${headline.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-            ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
-            ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+            [繁] ${tradTitle} <br> [Eng] ${engTitle}
+            <span class="text-sm text-gray-500 ml-2">${source}</span>
           </h3>
-          <p class="mt-4">${headline.description || '無摘要'}</p>
-          <a href="${headline.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+          <p class="mt-4">[繁] ${tradDesc} <br> [Eng] ${engDesc}</p>
+          <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
         </div>
       `;
     } else if (region) {
@@ -134,20 +176,17 @@ const render = {
         <div class="region-group">
           <h4 class="fade-in">${region}</h4>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${regionArticles.map((article, index) => {
+            ${regionArticles.map(({ article, tradTitle, engTitle, tradDesc, engDesc }, index) => {
               const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
               seenTitles.add(normalizedTitle);
               const source = article.source_id || article.source_name || '未知來源';
-              const isTrad = utils.isTraditionalChinese(article.title);
-              const isEng = utils.isEnglish(article.title);
               return `
                 <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
                   <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-                    ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-                    ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
-                    ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+                    [繁] ${tradTitle} <br> [Eng] ${engTitle}
+                    <span class="text-sm text-gray-500 ml-2">${source}</span>
                   </h3>
-                  <p class="mt-2">${article.description || '無摘要'}</p>
+                  <p class="mt-2">[繁] ${tradDesc} <br> [Eng] ${engDesc}</p>
                   <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
                 </div>
               `;
@@ -156,26 +195,23 @@ const render = {
         </div>
       `;
     } else {
-      sortedArticles.slice(0, 6).forEach((article, index) => {
+      sortedArticles.slice(0, 6).forEach(({ article, tradTitle, engTitle, tradDesc, engDesc }, index) => {
         const isLocal = category === 'local';
         const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
         seenTitles.add(normalizedTitle);
         const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
         const source = article.source_id || article.source_name || '未知來源';
         const isYahooOrRTHK = source.toLowerCase().includes('yahoo') || source.toLowerCase().includes('rthk');
-        const isTrad = utils.isTraditionalChinese(article.title);
-        const isEng = utils.isEnglish(article.title);
         if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
         container.innerHTML += `
           <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
             <img src="${isYahooOrRTHK ? (sourceLogos[source.toLowerCase()] || sourceLogos['default']) : (article.image_url || sourceLogos['default'])}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}'] || sourceLogos['default']; console.warn('Failed to load image: ${article.image_url}');">
             <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-              ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-              ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">無繁體中文版本</span>'}
-              ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">無英文版本</span>'}
+              [繁] ${tradTitle} <br> [Eng] ${engTitle}
+              <span class="text-sm text-gray-500 ml-2">${source}</span>
             </h3>
             ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
-            <p class="mt-2">${article.description || '無摘要'}</p>
+            <p class="mt-2">[繁] ${tradDesc} <br> [Eng] ${engDesc}</p>
             <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
           </div>
         `;
@@ -197,7 +233,7 @@ const fetch = {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < 3 * 60 * 1000) {
           console.log(`Using cached data for ${category || 'headline'}`);
-          render.renderNews(containerId, data.results, isHeadline, append);
+          await render.renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
           return;
         }
@@ -228,7 +264,7 @@ const fetch = {
       if (!response.ok) {
         console.error(`API request failed: ${response.status} ${response.statusText}`);
         if (response.status === 429) {
-          document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">API 請求超限，請稍後重試</div>';
+          document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">News API 請求超限，請稍後重試</div>';
         }
         throw new Error(`HTTP ${response.status}`);
       }
@@ -237,16 +273,16 @@ const fetch = {
       if (data.status === 'success') {
         if (data.results && data.results.length > 0) {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-          render.renderNews(containerId, data.results, isHeadline, append);
+          await render.renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
           if (isHeadline) document.getElementById('last-update').textContent = utils.formatDateTime(new Date());
         } else {
           console.warn(`No results for ${category || 'headline'}`);
           if (cachedData) {
             console.log(`Using expired cached data for ${category || 'headline'}`);
-            render.renderNews(containerId, cachedData.results, isHeadline, append);
+            await render.renderNews(containerId, cachedData.results, isHeadline, append);
           } else {
-            render.renderNews(containerId, [], isHeadline);
+            await render.renderNews(containerId, [], isHeadline);
             if (category === 'local' && !fallback) {
               console.log('Falling back to country=hk for local news');
               fetch.fetchNews(apiKey, '', 'local-news', false, append, true);
@@ -257,18 +293,18 @@ const fetch = {
         console.error(`API error for ${category || 'headline'}: ${data.message}`);
         if (cachedData) {
           console.log(`Using expired cached data for ${category || 'headline'}`);
-          render.renderNews(containerId, cachedData.results, isHeadline, append);
+          await render.renderNews(containerId, cachedData.results, isHeadline, append);
         } else {
-          render.renderNews(containerId, [], isHeadline);
+          await render.renderNews(containerId, [], isHeadline);
         }
       }
     } catch (error) {
       console.error(`Error fetching ${category || 'headline'} news:`, error);
       if (cachedData) {
         console.log(`Using expired cached data for ${category || 'headline'}`);
-        render.renderNews(containerId, cachedData.results, isHeadline, append);
+        await render.renderNews(containerId, cachedData.results, isHeadline, append);
       } else {
-        render.renderNews(containerId, [], isHeadline);
+        await render.renderNews(containerId, [], isHeadline);
       }
     }
   },
@@ -285,7 +321,7 @@ const fetch = {
           const { data, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < 3 * 60 * 1000) {
             console.log(`Using cached data for ${region}`);
-            render.renderNews('regional-news', data.results, false, true, region);
+            await render.renderNews('regional-news', data.results, false, true, region);
             continue;
           }
           cachedData = data;
@@ -301,7 +337,7 @@ const fetch = {
         if (!response.ok) {
           console.error(`API request failed for ${region}: ${response.status} ${response.statusText}`);
           if (response.status === 429) {
-            container.innerHTML += `<div class="text-center text-red-500">${region}: API 請求超限，請稍後重試</div>`;
+            container.innerHTML += `<div class="text-center text-red-500">${region}: News API 請求超限，請稍後重試</div>`;
           }
           throw new Error(`HTTP ${response.status}`);
         }
@@ -309,23 +345,23 @@ const fetch = {
         console.log(`API response for ${region}:`, data);
         if (data.status === 'success' && data.results && data.results.length > 0) {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-          render.renderNews('regional-news', data.results, false, true, region);
+          await render.renderNews('regional-news', data.results, false, true, region);
         } else {
           console.warn(`No results for ${region}`);
           if (cachedData) {
             console.log(`Using expired cached data for ${region}`);
-            render.renderNews('regional-news', cachedData.results, false, true, region);
+            await render.renderNews('regional-news', cachedData.results, false, true, region);
           } else {
-            render.renderNews('regional-news', [], false, true, region);
+            await render.renderNews('regional-news', [], false, true, region);
           }
         }
       } catch (error) {
         console.error(`Error fetching ${region} news:`, error);
         if (cachedData) {
           console.log(`Using expired cached data for ${region}`);
-          render.renderNews('regional-news', cachedData.results, false, true, region);
+          await render.renderNews('regional-news', cachedData.results, false, true, region);
         } else {
-          render.renderNews('regional-news', [], false, true, region);
+          await render.renderNews('regional-news', [], false, true, region);
         }
       }
     }
