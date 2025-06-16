@@ -1,23 +1,9 @@
 const baseUrl = 'https://newsdata.io/api/1/latest';
 const nextPages = { local: null, world: null, finance: null };
-const { sourceLogos, regions, traditionalChars, simplifiedChars, validSources, fallbackSources } = window.AppConfig;
+const { sourceLogos, regions, validSources, fallbackSources } = window.AppConfig;
 
 // Utility Functions
 const utils = {
-  isTraditionalChinese(text) {
-    let tradCount = 0, simpCount = 0;
-    for (const char of text) {
-      if (traditionalChars.has(char)) tradCount++;
-      if (simplifiedChars.has(char)) simpCount++;
-    }
-    return tradCount >= simpCount;
-  },
-
-  isEnglish(text) {
-    const cleanText = text.replace(/[\u4e00-\u9fff]/g, '');
-    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 1;
-  },
-
   formatDateTime(date) {
     return date.toLocaleString('zh-TW', {
       timeZone: 'Asia/Hong_Kong',
@@ -35,7 +21,7 @@ const utils = {
     document.getElementById('current-time').textContent = utils.formatDateTime(new Date());
   },
 
-  isWithin48Hours(pubDate) {
+  isWithin72Hours(pubDate) {
     if (!pubDate) {
       console.warn('No pubDate, assuming current time');
       return true;
@@ -51,7 +37,7 @@ const utils = {
       }
       const now = new Date();
       const diffMs = now - articleDate;
-      return diffMs >= 0 && diffMs <= 48 * 60 * 60 * 1000;
+      return diffMs >= 0 && diffMs <= 72 * 60 * 60 * 1000;
     } catch (error) {
       console.error(`Error parsing pubDate: ${pubDate}`, error);
       return true;
@@ -94,13 +80,14 @@ const render = {
     const category = isHeadline ? '頭條' : region ? region : containerId.split('-')[0];
 
     let seenTitles = new Set(JSON.parse(localStorage.getItem(`seenTitles_${containerId}`) || '[]'));
+    const filteredSources = new Set();
 
     const filteredArticles = articles.filter(article => {
       if (!article.title || !article.link) {
         console.warn(`Missing title or link for article:`, article);
         return false;
       }
-      if (!utils.isWithin48Hours(article.pubDate)) {
+      if (!utils.isWithin72Hours(article.pubDate)) {
         console.log(`Filtered out article due to time: ${article.title}, pubDate: ${article.pubDate}`);
         return false;
       }
@@ -111,53 +98,37 @@ const render = {
       const source = (article.source_id || article.source_name || '').toLowerCase();
       if (!validSources.includes(source)) {
         console.log(`Filtered out article due to invalid source: ${source}, title: ${article.title}`);
-        return false;
-      }
-      const isValidLang = utils.isTraditionalChinese(article.title) || utils.isEnglish(article.title);
-      if (!isValidLang) {
-        console.log(`Filtered out article due to language: ${article.title}`);
+        filteredSources.add(source);
         return false;
       }
       return true;
     });
-    console.log(`Filtered out ${articles.length - filteredArticles.length} articles for ${category}`);
+    console.log(`Filtered out ${articles.length - filteredArticles.length} articles for ${category}. Excluded sources:`, [...filteredSources]);
 
-    const articlesWithScore = filteredArticles.map(article => ({
-      article,
-      tradScore: utils.isTraditionalChinese(article.title),
-      engScore: utils.isEnglish(article.title) ? 1 : 0
-    }));
-    articlesWithScore.sort((a, b) => (b.tradScore + b.engScore) - (a.tradScore + a.engScore));
-    const sortedArticles = articlesWithScore.map(({ article }) => article);
-
-    if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 etnet、stheadline、rthk），或清除瀏覽器緩存後重試</div>`;
+    if (filteredArticles.length === 0) {
+      container.innerHTML = `<div class="text-center text-gray-500">無新聞（指定來源），可能原因：無近期數據、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 etnet、stheadline、rthk），或清除瀏覽器緩存後重試。排除的 source_id：${[...filteredSources].join(', ')}</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
 
     if (isHeadline) {
-      const article = sortedArticles[0];
+      const article = filteredArticles[0];
       const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
       seenTitles.add(normalizedTitle);
       const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
-      const isTrad = utils.isTraditionalChinese(article.title);
-      const isEng = utils.isEnglish(article.title);
       const safeSourceId = validSources.includes(source) ? source : 'default';
       container.innerHTML = `
         <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image for headline: ${article.image_url || 'no image_url'}, source: ${source}');">
         <div class="ml-6 flex-1">
           <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
             ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-            ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">英文</span>'}
-            ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">繁體中文</span>'}
           </h3>
           <p class="mt-4">${article.description || '無摘要'}</p>
           <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
         </div>
       `;
     } else if (region) {
-      const regionArticles = sortedArticles.slice(0, 3);
+      const regionArticles = filteredArticles.slice(0, 3);
       container.innerHTML += `
         <div class="region-group">
           <h4 class="fade-in">${region}</h4>
@@ -166,14 +137,10 @@ const render = {
               const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
               seenTitles.add(normalizedTitle);
               const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
-              const isTrad = utils.isTraditionalChinese(article.title);
-              const isEng = utils.isEnglish(article.title);
               return `
                 <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
                   <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
                     ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-                    ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">英文</span>'}
-                    ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">繁體中文</span>'}
                   </h3>
                   <p class="mt-2">${article.description || '無摘要'}</p>
                   <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
@@ -184,7 +151,7 @@ const render = {
         </div>
       `;
     } else {
-      sortedArticles.slice(0, 6).forEach((article, index) => {
+      filteredArticles.slice(0, 12).forEach((article, index) => {
         const isLocal = category === 'local';
         const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
         seenTitles.add(normalizedTitle);
@@ -192,15 +159,11 @@ const render = {
         const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
         const safeSourceId = validSources.includes(source) ? source : 'default';
         if (!article.image_url) console.warn(`No image_url for article: ${article.title}, using logo for source: ${source}`);
-        const isTrad = utils.isTraditionalChinese(article.title);
-        const isEng = utils.isEnglish(article.title);
         container.innerHTML += `
           <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
             <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image: ${article.image_url || 'no image_url'}, source: ${source}');">
             <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
               ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-              ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">英文</span>'}
-              ${isEng ? '' : '<span class="text-xs text-red-500 ml-2">繁體中文</span>'}
             </h3>
             ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
             <p class="mt-2">${article.description || '無摘要'}</p>
@@ -223,7 +186,7 @@ const fetch = {
     if (cached) {
       try {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 10 * 60 * 1000) {
+        if (Date.now() - timestamp < 15 * 60 * 1000) {
           console.log(`Using cached data for ${category || 'headline'}`);
           render.renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
@@ -237,6 +200,9 @@ const fetch = {
     }
     try {
       let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh,en`;
+      if (validSources.length > 0) {
+        url += `&source=${encodeURIComponent(validSources.join(','))}`;
+      }
       if (isHeadline) {
         url += '&category=top&country=hk';
       } else if (category === 'local') {
@@ -250,7 +216,7 @@ const fetch = {
         url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
       }
       console.log(`Fetching news: ${url}`);
-      const response = await window.fetch(url);
+      const response = await window.fetch(url).catch(e => { throw new Error(`Fetch error: ${e.message}`); });
       if (!response.ok) {
         console.error(`API request failed: ${response.status} ${response.statusText}`);
         let errorMessage = '';
@@ -319,7 +285,7 @@ const fetch = {
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < 10 * 60 * 1000) {
+          if (Date.now() - timestamp < 15 * 60 * 1000) {
             console.log(`Using cached data for ${region}`);
             render.renderNews('regional-news', data.results, false, true, region);
             continue;
@@ -332,8 +298,11 @@ const fetch = {
       }
       try {
         let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}&language=zh,en`;
+        if (validSources.length > 0) {
+          url += `&source=${encodeURIComponent(validSources.join(','))}`;
+        }
         console.log(`Fetching regional news: ${url}`);
-        const response = await window.fetch(url);
+        const response = await window.fetch(url).catch(e => { throw new Error(`Fetch error: ${e.message}`); });
         if (!response.ok) {
           console.error(`API request failed for ${region}: ${response.status} ${response.statusText}`);
           let errorMessage = '';
@@ -391,33 +360,58 @@ const events = {
   setupEventListeners(apiKey) {
     ['local', 'world', 'finance'].forEach(category => {
       const button = document.getElementById(`load-more-${category}`);
-      if (button) button.addEventListener('click', () => fetch.loadMore(apiKey, category, `${category}-news`));
+      if (button) {
+        button.addEventListener('click', () => {
+          try {
+            fetch.loadMore(apiKey, category, `${category}-news`);
+          } catch (error) {
+            console.error(`Error loading more ${category} news:`, error);
+          }
+        });
+      }
     });
 
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', e => {
         e.preventDefault();
-        document.querySelector(anchor.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+        try {
+          document.querySelector(anchor.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+        } catch (error) {
+          console.error(`Error scrolling to section:`, error);
+        }
       });
     });
 
     const searchToggle = document.getElementById('search-toggle');
     const searchBar = document.getElementById('search-bar');
-    searchToggle.addEventListener('click', () => {
-      searchBar.classList.toggle('hidden');
-      if (!searchBar.classList.contains('hidden')) document.getElementById('search').focus();
-    });
-
-    document.getElementById('search').addEventListener('input', e => {
-      const query = e.target.value.toLowerCase();
-      ['local-news', 'world-news', 'finance-news', 'regional-news'].forEach(sectionId => {
-        document.querySelectorAll(`#${sectionId} .card`).forEach(article => {
-          const title = article.querySelector('h3').textContent.toLowerCase();
-          const description = article.querySelector('p')?.textContent.toLowerCase() || '';
-          article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
-        });
+    if (searchToggle && searchBar) {
+      searchToggle.addEventListener('click', () => {
+        try {
+          searchBar.classList.toggle('hidden');
+          if (!searchBar.classList.contains('hidden')) document.getElementById('search').focus();
+        } catch (error) {
+          console.error(`Error toggling search bar:`, error);
+        }
       });
-    });
+    }
+
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+      searchInput.addEventListener('input', e => {
+        try {
+          const query = e.target.value.toLowerCase();
+          ['local-news', 'world-news', 'finance-news', 'regional-news'].forEach(sectionId => {
+            document.querySelectorAll(`#${sectionId} .card`).forEach(article => {
+              const title = article.querySelector('h3').textContent.toLowerCase();
+              const description = article.querySelector('p')?.textContent.toLowerCase() || '';
+              article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
+            });
+          });
+        } catch (error) {
+          console.error(`Error searching news:`, error);
+        }
+      });
+    }
 
     const themeLinks = document.querySelectorAll('.theme-link');
     const savedTheme = localStorage.getItem('theme') || 'apple';
@@ -426,11 +420,15 @@ const events = {
       if (link.getAttribute('data-theme') === savedTheme) link.classList.add('active');
       link.addEventListener('click', e => {
         e.preventDefault();
-        const selectedTheme = link.getAttribute('data-theme');
-        document.documentElement.setAttribute('data-theme', selectedTheme);
-        localStorage.setItem('theme', selectedTheme);
-        themeLinks.forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
+        try {
+          const selectedTheme = link.getAttribute('data-theme');
+          document.documentElement.setAttribute('data-theme', selectedTheme);
+          localStorage.setItem('theme', selectedTheme);
+          themeLinks.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+        } catch (error) {
+          console.error(`Error switching theme:`, error);
+        }
       });
     });
   }
@@ -441,10 +439,14 @@ function initializeNews(apiKey) {
   utils.clearInvalidCache();
   utils.updateCurrentTime();
   setInterval(utils.updateCurrentTime, 1000);
-  fetch.fetchNews(apiKey, '', 'headline', true);
-  fetch.fetchNews(apiKey, 'local', 'local-news');
-  fetch.fetchNews(apiKey, 'world', 'world-news');
-  fetch.fetchNews(apiKey, 'business', 'finance-news');
-  fetch.fetchRegionalNews(apiKey);
-  events.setupEventListeners(apiKey);
+  try {
+    fetch.fetchNews(apiKey, '', 'headline', true);
+    fetch.fetchNews(apiKey, 'local', 'local-news');
+    fetch.fetchNews(apiKey, 'world', 'world-news');
+    fetch.fetchNews(apiKey, 'business', 'finance-news');
+    fetch.fetchRegionalNews(apiKey);
+    events.setupEventListeners(apiKey);
+  } catch (error) {
+    console.error(`Error initializing news:`, error);
+  }
 }
