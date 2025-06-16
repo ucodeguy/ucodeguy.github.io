@@ -4,7 +4,8 @@ window.AppConfig = {
     'scmp', 'hk01', 'mingpao', 'orientaldaily', 'hkecon',
     'chinatimes', 'libertytimes', 'udn',
     'nytimes', 'bbc', 'cnn', 'reuters',
-    'stheadline', 'dailymailuk', 'rthk', 'etnet', 'nypost'
+    'stheadline', 'dailymailuk', 'rthk', 'rthk_ch',
+    'etnet', 'etnet_hk', 'nypost'
   ],
   fallbackSources: false,
   sourceLogos: {
@@ -23,7 +24,9 @@ window.AppConfig = {
     'stheadline': 'https://via.placeholder.com/150?text=Star+Headline',
     'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
+    'rthk_ch': 'https://via.placeholder.com/150?text=RTHK',
     'etnet': 'https://via.placeholder.com/150?text=ETNet',
+    'etnet_hk': 'https://via.placeholder.com/150?text=ETNet',
     'nypost': 'https://via.placeholder.com/150?text=NY+Post',
     'default': 'https://via.placeholder.com/300x200?text=News'
   },
@@ -36,5 +39,9 @@ window.AppConfig = {
     '英國': 'gb',
     '中國': 'cn'
   }
-  // To verify source_id, run: fetch('https://newsdata.io/api/1/sources?apikey=pub_0c304e4e636e4fc9b1659cd3eae0482b').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
+  // To verify source_id, run in browser console:
+  // fetch('https://newsdata.io/api/1/sources?apikey=pub_0c304e4e636e4fc9b1659cd3eae0482b')
+  //   .then(res => res.json())
+  //   .then(data => console.log(data.results.map(s => s.source_id)))
+  // Update validSources and sourceLogos if source_id differs (e.g., 'rthk_ch' instead of 'rthk')
 };
