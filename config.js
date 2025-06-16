@@ -1,13 +1,12 @@
 window.AppConfig = {
-  NEWS_API_KEY: 'pub_002054ec6eaf4e20a595bdc8f6fd81db', // 請替換為有效 NewsData.io API 密鑰
+  NEWS_API_KEY: 'pub_002054ec6eaf4e20a595bdc8f6fd81db', // 請替換為有效 NewsData.io API 密鑰，檢查 https://newsdata.io/dashboard
   validSources: [
-    'scmp', 'hk01', // 香港現有
-    'mingpao', 'orientaldaily', 'hkecon', // 香港新增
-    'chinatimes', 'libertytimes', 'udn', // 台灣
-    'nytimes', 'bbc', 'cnn', 'reuters', // 英文
-    'stheadline', 'google', 'dailymailuk', 'rthk_ch' // 新增來源
+    'scmp', 'hk01', 'mingpao', 'orientaldaily', 'hkecon',
+    'chinatimes', 'libertytimes', 'udn',
+    'nytimes', 'bbc', 'cnn', 'reuters',
+    'stheadline', 'dailymailuk', 'rthk' // 移除 google，檢查 rthk_ch 是否為 rthk
   ],
-  fallbackSources: false, // 禁用非指定來源
+  fallbackSources: false,
   sourceLogos: {
     'scmp': 'https://via.placeholder.com/150?text=SCMP',
     'hk01': 'https://via.placeholder.com/150?text=HK01',
@@ -22,10 +21,9 @@ window.AppConfig = {
     'cnn': 'https://via.placeholder.com/150?text=CNN',
     'reuters': 'https://via.placeholder.com/150?text=Reuters',
     'stheadline': 'https://via.placeholder.com/150?text=Star+Headline',
-    'google': 'https://via.placeholder.com/150?text=Google+News',
     'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
-    'rthk_ch': 'https://via.placeholder.com/150?text=RTHK',
-    'default': 'https://via.placeholder.com/300x200?text=News' // 預設圖片
+    'rthk': 'https://via.placeholder.com/150?text=RTHK',
+    'default': 'https://via.placeholder.com/300x200?text=News'
   },
   regions: {
     '日本': 'jp',
@@ -38,5 +36,6 @@ window.AppConfig = {
   },
   traditionalChars: new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']),
   simplifiedChars: new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发'])
-  // 注意：部署後檢查 F12 > Console 的 source_id，若無 stheadline、rthk_ch 等，聯繫 NewsData.io 或更新 validSources
+  // 注意：部署後檢查 F12 > Console 的 source_id，若無 stheadline、rthk 等，執行以下代碼查詢有效 source_id：
+  // fetch('https://newsdata.io/api/1/sources?apikey=').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
 };
