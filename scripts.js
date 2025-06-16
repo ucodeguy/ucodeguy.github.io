@@ -10,12 +10,12 @@ const utils = {
       if (traditionalChars.has(char)) tradCount++;
       if (simplifiedChars.has(char)) simpCount++;
     }
-    return tradCount > simpCount && tradCount > 2 ? tradCount / (tradCount + simpCount + 1) : 0;
+    return tradCount >= simpCount && tradCount > 0 ? tradCount / (tradCount + simpCount + 1) : 0;
   },
 
   isEnglish(text) {
     const cleanText = text.replace(/[\u4e00-\u9fff]/g, '');
-    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 3;
+    return /^[A-Za-z0-9\s.,!?]+$/.test(cleanText) && cleanText.length > 1;
   },
 
   formatDateTime(date) {
@@ -70,7 +70,7 @@ const utils = {
 
   clearInvalidCache() {
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('news_')) {
+      if (key.startsWith('news_') || key.startsWith('seenTitles_')) {
         try {
           const { data, timestamp } = JSON.parse(localStorage.getItem(key));
           if (!data || !timestamp || Date.now() - timestamp > 30 * 60 * 1000) {
@@ -109,7 +109,7 @@ const render = {
         return false;
       }
       const source = (article.source_id || article.source_name || '').toLowerCase();
-      if (!fallbackSources && !validSources.includes(source)) {
+      if (!validSources.includes(source)) {
         console.log(`Filtered out article due to invalid source: ${source}, title: ${article.title}`);
         return false;
       }
@@ -131,7 +131,7 @@ const render = {
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（${fallbackSources ? '所有來源' : '指定來源'}），可能原因：無近期數據、語言不符、API限制或緩存問題。請檢查 F12 > Console 的 API 響應和 source_id，或清除瀏覽器緩存後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符或API限制。請檢查 F12 > Console 的 API 響應和 source_id，或清除瀏覽器緩存後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -140,11 +140,12 @@ const render = {
       const article = sortedArticles[0];
       const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
       seenTitles.add(normalizedTitle);
-      const source = article.source_id || article.source_name || '未知來源';
+      const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
       const isTrad = utils.isTraditionalChinese(article.title);
       const isEng = utils.isEnglish(article.title);
+      const safeSourceId = validSources.includes(source) ? source : 'default';
       container.innerHTML = `
-        <img src="${article.image_url || sourceLogos[source.toLowerCase()] || sourceLogos['default']}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src=sourceLogos['${article.source_id || 'default'}']; console.warn('Failed to load image: ${article.image_url}');">
+        <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image for headline: ${article.image_url || 'no image_url'}, source: ${source}');">
         <div class="ml-6 flex-1">
           <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
             ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
@@ -164,7 +165,7 @@ const render = {
             ${regionArticles.map((article, index) => {
               const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
               seenTitles.add(normalizedTitle);
-              const source = article.source_id || article.source_name || '未知來源';
+              const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
               const isTrad = utils.isTraditionalChinese(article.title);
               const isEng = utils.isEnglish(article.title);
               return `
@@ -188,13 +189,14 @@ const render = {
         const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
         seenTitles.add(normalizedTitle);
         const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
-        const source = article.source_id || article.source_name || '未知來源';
-        if (!article.image_url) console.warn(`No image_url for article: ${article.title}`);
+        const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
+        const safeSourceId = validSources.includes(source) ? source : 'default';
+        if (!article.image_url) console.warn(`No image_url for article: ${article.title}, using logo for source: ${source}`);
         const isTrad = utils.isTraditionalChinese(article.title);
         const isEng = utils.isEnglish(article.title);
         container.innerHTML += `
           <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-            <img src="${article.image_url || sourceLogos[source.toLowerCase()] || sourceLogos['default']}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src=sourceLogos['${article.source_id || 'default'}']; console.warn('Failed to load image: ${article.image_url}');">
+            <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image: ${article.image_url || 'no image_url'}, source: ${source}');">
             <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
               ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
               ${isTrad ? '' : '<span class="text-xs text-red-500 ml-2">英文</span>'}
@@ -244,7 +246,7 @@ const fetch = {
       } else if (category === 'business') {
         url += '&category=business';
       } else if (fallback) {
-        url += '&q=news'; // 廣泛查詢
+        url += '&q=news'; // 廣泛查詢（僅在必要時）
       }
       if (nextPages[containerId.split('-')[0]] && append) {
         url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
@@ -273,9 +275,6 @@ const fetch = {
           if (cachedData) {
             console.log(`Using expired cached data for ${category || 'headline'}`);
             render.renderNews(containerId, cachedData.results, isHeadline, append);
-          } else if (!fallback) {
-            console.log(`Falling back to broad query for ${category || 'headline'}`);
-            fetch.fetchNews(apiKey, '', containerId, isHeadline, append, true);
           } else {
             render.renderNews(containerId, [], isHeadline);
           }
@@ -343,21 +342,7 @@ const fetch = {
           console.warn(`No results for ${region}`);
           if (cachedData) {
             console.log(`Using expired cached data for ${region}`);
-            render.renderNews('regional-news', data.results, false, true, region);
-          } else if (region === '台灣' || region === '香港') {
-            console.log(`Falling back for ${region}`);
-            url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&q=news`;
-            const fallbackResponse = await window.fetch(url);
-            if (fallbackResponse.ok) {
-              const fallbackData = await fallbackResponse.json();
-              if (fallbackData.status === 'success' && fallbackData.results) {
-                render.renderNews('regional-news', fallbackData.results, false, true, region);
-              } else {
-                render.renderNews('regional-news', [], false, true, region);
-              }
-            } else {
-              render.renderNews('regional-news', [], false, true, region);
-            }
+            render.renderNews('regional-news', cachedData.results, false, true, region);
           } else {
             render.renderNews('regional-news', [], false, true, region);
           }
