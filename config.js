@@ -3,8 +3,9 @@ window.AppConfig = {
   validSources: [
     'scmp', 'hk01', // 香港現有
     'mingpao', 'orientaldaily', 'hkecon', // 香港新增
-    'chinatimes', 'libertytimes', 'udn', // 台灣新增
-    'nytimes', 'bbc', 'cnn', 'reuters' // 英文
+    'chinatimes', 'libertytimes', 'udn', // 台灣
+    'nytimes', 'bbc', 'cnn', 'reuters', // 英文
+    'stheadline', 'google', 'dailymailuk', 'rthk_ch' // 新增來源
   ],
   fallbackSources: false, // 禁用非指定來源
   sourceLogos: {
@@ -20,6 +21,10 @@ window.AppConfig = {
     'bbc': 'https://via.placeholder.com/150?text=BBC',
     'cnn': 'https://via.placeholder.com/150?text=CNN',
     'reuters': 'https://via.placeholder.com/150?text=Reuters',
+    'stheadline': 'https://via.placeholder.com/150?text=Star+Headline',
+    'google': 'https://via.placeholder.com/150?text=Google+News',
+    'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
+    'rthk_ch': 'https://via.placeholder.com/150?text=RTHK',
     'default': 'https://via.placeholder.com/300x200?text=News' // 預設圖片
   },
   regions: {
@@ -33,5 +38,5 @@ window.AppConfig = {
   },
   traditionalChars: new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']),
   simplifiedChars: new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发'])
-  // 注意：部署後檢查 F12 > Console 的 source_id，若無 mingpao、libertytimes 等，聯繫 NewsData.io 或更新 validSources
+  // 注意：部署後檢查 F12 > Console 的 source_id，若無 stheadline、rthk_ch 等，聯繫 NewsData.io 或更新 validSources
 };
