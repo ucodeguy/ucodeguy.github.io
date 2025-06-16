@@ -6,7 +6,7 @@ window.AppConfig = {
     'chinatimes', 'libertytimes', 'udn', // 台灣新增
     'nytimes', 'bbc', 'cnn', 'reuters' // 英文
   ],
-  fallbackSources: true, // 若無有效來源，允許其他來源
+  fallbackSources: false, // 禁用非指定來源
   sourceLogos: {
     'scmp': 'https://via.placeholder.com/150?text=SCMP',
     'hk01': 'https://via.placeholder.com/150?text=HK01',
@@ -20,7 +20,7 @@ window.AppConfig = {
     'bbc': 'https://via.placeholder.com/150?text=BBC',
     'cnn': 'https://via.placeholder.com/150?text=CNN',
     'reuters': 'https://via.placeholder.com/150?text=Reuters',
-    'default': 'https://via.placeholder.com/300x200?text=News'
+    'default': 'https://via.placeholder.com/300x200?text=News' // 預設圖片
   },
   regions: {
     '日本': 'jp',
