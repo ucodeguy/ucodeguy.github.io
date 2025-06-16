@@ -37,5 +37,5 @@ window.AppConfig = {
     '中國': 'cn'
   }
   // 注意：部署後檢查 F12 > Console 的 source_id，若無 etnet.com.hk、stheadline.com.hk、rthk 等，執行以下代碼查詢有效 source_id：
-  // fetch('https://newsdata.io/api/1/sources?apikey=').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
+  // fetch('https://newsdata.io/api/1/sources?apikey=YOUR_API_KEY').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
 };
