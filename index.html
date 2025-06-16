@@ -9,67 +9,68 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
-  <header class="bg-white shadow">
-    <nav class="container mx-auto px-6 py-4">
-      <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold">香港新聞</h1>
-        <div class="flex items-center space-x-4">
-          <a href="#headline" class="hover:text-blue-600">頭條</a>
-          <a href="#local-news" class="hover:text-blue-600">本地</a>
-          <a href="#world-news" class="hover:text-blue-600">世界</a>
-          <a href="#finance-news" class="hover:text-blue-600">財經</a>
-          <a href="#regional-news" class="hover:text-blue-600">地區</a>
-          <button id="search-toggle" class="text-gray-600 hover:text-blue-600">
-            <i class="fas fa-search"></i>
-          </button>
-        </div>
-      </div>
-      <div id="search-bar" class="hidden mt-4">
-        <input id="search" type="text" placeholder="搜索新聞..." class="w-full p-2 border rounded">
+<body class="bg-gray-50 font-sans leading-normal tracking-normal">
+  <header class="bg-white shadow sticky top-0 z-50">
+    <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-bold">香港新聞</h1>
+      <div class="flex items-center space-x-4">
+        <a href="#headline" class="text-sm hover:text-blue-600">頭條</a>
+        <a href="#local" class="text-sm hover:text-blue-600">本地</a>
+        <a href="#world" class="text-sm hover:text-blue-600">世界</a>
+        <a href="#finance" class="text-sm hover:text-blue-600">財經</a>
+        <a href="#regional" class="text-sm hover:text-blue-600">地區</a>
+        <button id="search-toggle" class="text-gray-600 hover:text-blue-600">
+          <i class="fas fa-search"></i>
+        </button>
       </div>
     </nav>
+    <div id="search-bar" class="hidden bg-gray-100 py-2">
+      <div class="container mx-auto px-4">
+        <input id="search" type="text" placeholder="搜索新聞..." class="w-full p-2 border rounded text-sm">
+      </div>
+    </div>
   </header>
 
-  <main class="container mx-auto px-6 py-8">
-    <section id="headline" class="mb-12">
-      <h2 class="text-3xl font-bold mb-6">頭條</h2>
-      <div id="headline-news" class="flex flex-col md:flex-row gap-6"></div>
-      <p class="text-sm text-gray-500 mt-4">最後更新: <span id="last-update"></span></p>
-      <p class="text-sm text-gray-500">當前時間: <span id="current-time"></span></p>
+  <main class="container mx-auto px-4 py-6">
+    <section id="headline" class="mb-8">
+      <div id="headline-news" class="bg-white rounded-lg shadow overflow-hidden" data-category="headline"></div>
+      <div class="flex justify-between text-xs text-gray-500 mt-2">
+        <p>最後更新: <span id="last-update"></span></p>
+        <p>當前時間: <span id="current-time"></span></p>
+      </div>
     </section>
 
-    <section id="local-news" class="mb-12">
-      <h2 class="text-3xl font-bold mb-6">本地新聞</h2>
-      <div id="local-news-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-      <button id="load-more-local" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hidden">加載更多</button>
+    <section id="content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div id="local" class="col-span-1">
+        <h2 class="text-2xl font-bold mb-4">本地新聞</h2>
+        <div id="local-news-content" class="grid grid-cols-1 gap-4" data-category="local-news"></div>
+        <button id="load-more-local" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
+      </div>
+      <div id="world" class="col-span-1">
+        <h2 class="text-2xl font-bold mb-4">世界新聞</h2>
+        <div id="world-news-content" class="grid grid-cols-1 gap-4" data-category="world-news"></div>
+        <button id="load-more-world" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
+      </div>
+      <div id="finance" class="col-span-1">
+        <h2 class="text-2xl font-bold mb-4">財經新聞</h2>
+        <div id="finance-news-content" class="grid grid-cols-1 gap-4" data-category="finance-news"></div>
+        <button id="load-more-finance" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
+      </div>
     </section>
 
-    <section id="world-news" class="mb-12">
-      <h2 class="text-3xl font-bold mb-6">世界新聞</h2>
-      <div id="world-news-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-      <button id="load-more-world" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hidden">加載更多</button>
-    </section>
-
-    <section id="finance-news" class="mb-12">
-      <h2 class="text-3xl font-bold mb-6">財經新聞</h2>
-      <div id="finance-news-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-      <button id="load-more-finance" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hidden">加載更多</button>
-    </section>
-
-    <section id="regional-news">
-      <h2 class="text-3xl font-bold mb-6">地區新聞</h2>
-      <div id="regional-news-content"></div>
+    <section id="regional" class="mt-8">
+      <h2 class="text-2xl font-bold mb-4">地區新聞</h2>
+      <div id="regional-news-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-category="regional-news"></div>
     </section>
   </main>
 
-  <footer class="bg-white shadow py-6">
-    <div class="container mx-auto px-6">
-      <p class="text-center text-gray-600">© 2025 香港新聞。僅使用指定來源（SCMP、HK01、明報、東方日報、香港經濟日報、中國時報、自由時報、聯合報、NYT、BBC、CNN、Reuters、stheadline、dailymailuk、rthk、etnet）。數據來源：<a href="https://newsdata.io" target="_blank" class="text-blue-600">NewsData.io</a>。</p>
+  <footer class="bg-white shadow mt-8 py-6">
+    <div class="container mx-auto px-4">
+      <p class="text-center text-gray-600 text-sm">© 2025 香港新聞。僅使用指定來源（SCMP、HK01、明報、東方日報、香港經濟日報、中國時報、自由時報、聯合報、NYT、BBC、CNN、Reuters、stheadline、dailymailuk、rthk、etnet）。數據來源：<a href="https://newsdata.io" target="_blank" class="text-blue-600">NewsData.io</a>。</p>
       <div class="flex justify-center space-x-4 mt-4">
-        <a href="#" data-theme="apple" class="theme-link text-gray-600 hover:text-blue-600">Apple</a>
-        <a href="#" data-theme="dark" class="theme-link text-gray-600 hover:text-blue-600">Dark</a>
-        <a href="#" data-theme="light" class="theme-link text-gray-600 hover:text-blue-600">Light</a>
+        <a href="#" data-theme="apple" class="theme-link text-gray-600 hover:text-blue-600 text-sm">Apple</a>
+        <a href="#" data-theme="dark" class="theme-link text-gray-600 hover:text-blue-600 text-sm">Dark</a>
+        <a href="#" data-theme="light" class="theme-link text-gray-600 hover:text-blue-600 text-sm">Light</a>
       </div>
     </div>
   </footer>
