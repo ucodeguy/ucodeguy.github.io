@@ -131,7 +131,7 @@ const render = {
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符或API限制。請檢查 F12 > Console 的 API 響應和 source_id，或清除瀏覽器緩存後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 stheadline、rthk_ch），或清除瀏覽器緩存後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -216,8 +216,8 @@ const render = {
 
 // Fetch Functions
 const fetch = {
-  async fetchNews(apiKey, category = '', containerId, isHeadline = false, append = false, fallback = false) {
-    const cacheKey = `news_${category || 'headline'}_${fallback}`;
+  async fetchNews(apiKey, category = '', containerId, isHeadline = false, append = false) {
+    const cacheKey = `news_${category || 'headline'}`;
     let cachedData = null;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -239,14 +239,12 @@ const fetch = {
       let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}`;
       if (isHeadline) {
         url += '&category=top&country=hk';
-      } else if (category === 'local' && !fallback) {
+      } else if (category === 'local') {
         url += '&category=local&country=hk';
       } else if (category === 'world') {
         url += '&category=world';
       } else if (category === 'business') {
         url += '&category=business';
-      } else if (fallback) {
-        url += '&q=news'; // 廣泛查詢（僅在必要時）
       }
       if (nextPages[containerId.split('-')[0]] && append) {
         url += `&page=${encodeURIComponent(nextPages[containerId.split('-')[0]])}`;
