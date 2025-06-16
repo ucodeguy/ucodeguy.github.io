@@ -18,7 +18,12 @@ const utils = {
   },
 
   updateCurrentTime() {
-    document.getElementById('current-time').textContent = utils.formatDateTime(new Date());
+    const currentTimeEl = document.getElementById('current-time');
+    if (currentTimeEl) {
+      currentTimeEl.textContent = utils.formatDateTime(new Date());
+    } else {
+      console.warn('Element #current-time not found');
+    }
   },
 
   isWithin72Hours(pubDate) {
@@ -76,9 +81,16 @@ const utils = {
 const render = {
   renderNews(containerId, articles, isHeadline = false, append = false, region = null) {
     const container = document.getElementById(containerId);
+    const errorEl = document.getElementById(`${containerId.split('-')[0]}-error`);
+    if (!container) {
+      console.error(`Container #${containerId} not found`);
+      if (errorEl) errorEl.textContent = `渲染錯誤：找不到容器 #${containerId}`;
+      return;
+    }
     if (!append) container.innerHTML = '';
-    const category = isHeadline ? '頭條' : region ? region : containerId.split('-')[0];
+    if (errorEl) errorEl.classList.add('hidden');
 
+    const category = isHeadline ? '頭條' : region ? region : containerId.split('-')[0];
     let seenTitles = new Set(JSON.parse(localStorage.getItem(`seenTitles_${containerId}`) || '[]'));
     const filteredSources = new Set();
 
@@ -96,7 +108,8 @@ const render = {
         return false;
       }
       const source = (article.source_id || article.source_name || '').toLowerCase();
-      if (!validSources.includes(source)) {
+      const isValidSource = validSources.some(valid => source.includes(valid));
+      if (!isValidSource) {
         console.log(`Filtered out article due to invalid source: ${source}, title: ${article.title}`);
         filteredSources.add(source);
         return false;
@@ -106,8 +119,11 @@ const render = {
     console.log(`Filtered out ${articles.length - filteredArticles.length} articles for ${category}. Excluded sources:`, [...filteredSources]);
 
     if (filteredArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無新聞（指定來源），可能原因：無近期數據、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 etnet、stheadline、rthk），或清除瀏覽器緩存後重試。排除的 source_id：${[...filteredSources].join(', ')}</div>`;
-      if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
+      container.innerHTML = `<div class="text-center text-gray-500 text-sm">無新聞，可能原因：無近期數據、API限制或來源不匹配。請檢查 F12 > Console 的 source_id（例如 etnet、stheadline、rthk）。排除的 source_id：${[...filteredSources].join(', ')}</div>`;
+      if (!region && containerId !== 'headline-news') {
+        const loadMoreBtn = document.getElementById(`load-more-${category}`);
+        if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
+      }
       return;
     }
 
@@ -116,34 +132,36 @@ const render = {
       const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
       seenTitles.add(normalizedTitle);
       const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
-      const safeSourceId = validSources.includes(source) ? source : 'default';
+      const safeSourceId = validSources.find(valid => source.includes(valid)) || 'default';
       container.innerHTML = `
-        <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="rounded-lg object-contain" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image for headline: ${article.image_url || 'no image_url'}, source: ${source}');">
-        <div class="ml-6 flex-1">
-          <h3 class="font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-            ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
-          </h3>
-          <p class="mt-4">${article.description || '無摘要'}</p>
-          <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+        <div class="flex flex-col md:flex-row gap-4">
+          <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="rounded-lg object-cover w-full md:w-1/2 h-64" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image for headline: ${article.image_url || 'no image_url'}, source: ${source}');">
+          <div class="flex-1 p-4">
+            <h3 class="hero-title ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+              ${article.title} <span class="text-xs text-gray-500 ml-2">${source}</span>
+            </h3>
+            <p class="mt-2 text-sm">${article.description || '無摘要'}</p>
+            <a href="${article.link}" class="accent mt-2 inline-block text-sm font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+          </div>
         </div>
       `;
     } else if (region) {
       const regionArticles = filteredArticles.slice(0, 3);
       container.innerHTML += `
         <div class="region-group">
-          <h4 class="fade-in">${region}</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <h4 class="text-lg font-semibold mb-2">${region}</h4>
+          <div class="grid grid-cols-1 gap-4">
             ${regionArticles.map((article, index) => {
               const normalizedTitle = article.title.replace(/[\s\p{P}]/gu, '').toLowerCase();
               seenTitles.add(normalizedTitle);
               const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
               return `
-                <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-                  <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-                    ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
+                <div class="card bg-white rounded-lg p-4 shadow fade-in" style="animation-delay: ${index * 0.1}s">
+                  <h3 class="card-title ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+                    ${article.title} <span class="text-xs text-gray-500 ml-2">${source}</span>
                   </h3>
-                  <p class="mt-2">${article.description || '無摘要'}</p>
-                  <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+                  <p class="mt-2 text-sm">${article.description || '無摘要'}</p>
+                  <a href="${article.link}" class="accent mt-2 inline-block text-sm font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
                 </div>
               `;
             }).join('')}
@@ -157,23 +175,32 @@ const render = {
         seenTitles.add(normalizedTitle);
         const hasHongKong = (article.title + (article.description || '')).toLowerCase().includes('香港');
         const source = (article.source_id || article.source_name || 'unknown').toLowerCase();
-        const safeSourceId = validSources.includes(source) ? source : 'default';
+        const safeSourceId = validSources.find(valid => source.includes(valid)) || 'default';
         if (!article.image_url) console.warn(`No image_url for article: ${article.title}, using logo for source: ${source}`);
         container.innerHTML += `
-          <div class="card rounded-xl p-6 fade-in" style="animation-delay: ${index * 0.1}s">
-            <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="w-full h-48 object-contain rounded-lg mb-4" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image: ${article.image_url || 'no image_url'}, source: ${source}');">
-            <h3 class="text-xl font-semibold ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
-              ${article.title} <span class="text-sm text-gray-500 ml-2">${source}</span>
+          <div class="card bg-white rounded-lg p-4 shadow fade-in" style="animation-delay: ${index * 0.1}s">
+            <img src="${article.image_url || sourceLogos[safeSourceId]}" alt="${article.title}" class="w-full h-32 object-cover rounded-lg mb-2" onerror="this.src='${sourceLogos['default']}'; console.warn('Failed to load image: ${article.image_url || 'no image_url'}, source: ${source}');">
+            <h3 class="card-title ${seenTitles.has(normalizedTitle) ? 'read' : ''}">
+              ${article.title} <span class="text-xs text-gray-500 ml-2">${source}</span>
             </h3>
             ${isLocal && hasHongKong ? '<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-2">香港</span>' : ''}
-            <p class="mt-2">${article.description || '無摘要'}</p>
-            <a href="${article.link}" class="accent mt-4 inline-block font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
+            <p class="mt-2 text-sm">${article.description || '無摘要'}</p>
+            <a href="${article.link}" class="accent mt-2 inline-block text-sm font-medium" target="_blank">閱讀更多 <i class="fas fa-arrow-right ml-1"></i></a>
           </div>
         `;
       });
-      document.getElementById(`load-more-${category}`)?.classList.remove('hidden');
+      const loadMoreBtn = document.getElementById(`load-more-${category}`);
+      if (loadMoreBtn) loadMoreBtn.classList.remove('hidden');
     }
     localStorage.setItem(`seenTitles_${containerId}`, JSON.stringify([...seenTitles].slice(0, 100)));
+  },
+
+  showError(containerId, message) {
+    const errorEl = document.getElementById(`${containerId.split('-')[0]}-error`);
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
   }
 };
 
@@ -200,11 +227,8 @@ const fetch = {
     }
     try {
       let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh,en`;
-      if (validSources.length > 0) {
-        url += `&source=${encodeURIComponent(validSources.join(','))}`;
-      }
       if (isHeadline) {
-        url += '&category=top&country=hk';
+        url += '&country=hk';
       } else if (category === 'local') {
         url += '&country=hk';
       } else if (category === 'world') {
@@ -229,13 +253,13 @@ const fetch = {
           errorMessage = 'Unknown error';
         }
         if (response.status === 429) {
-          errorMessage = 'News API 請求超限，請稍後重試。檢查 F12 > Network';
+          errorMessage = '新聞 API 請求超限，請稍後重試。';
         } else if (response.status === 401) {
-          errorMessage = 'News API 密鑰無效，請檢查 config.js。檢查 F12 > Network';
+          errorMessage = '新聞 API 密鑰無效，請檢查 config.js。';
         } else if (response.status === 422) {
-          errorMessage = `News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）、來源（etnet、stheadline、rthk 等）或參數（category、country）。檢查 F12 > Network 的請求和響應`;
+          errorMessage = `新聞 API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）或參數。`;
         }
-        document.getElementById(containerId).innerHTML = `<div class="text-center text-red-500">${errorMessage}</div>`;
+        render.showError(containerId, errorMessage);
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
@@ -245,39 +269,53 @@ const fetch = {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
           render.renderNews(containerId, data.results, isHeadline, append);
           if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
-          if (isHeadline) document.getElementById('last-update').textContent = utils.formatDateTime(new Date());
+          if (isHeadline) {
+            const lastUpdateEl = document.getElementById('last-update');
+            if (lastUpdateEl) lastUpdateEl.textContent = utils.formatDateTime(new Date());
+          }
         } else {
           console.warn(`No results for ${category || 'headline'}`);
           if (cachedData) {
             console.log(`Using expired cached data for ${category || 'headline'}`);
             render.renderNews(containerId, cachedData.results, isHeadline, append);
           } else {
-            render.renderNews(containerId, [], isHeadline);
+            render.renderNews(containerId, [], isHeadline, append);
           }
         }
       } else {
         console.error(`API error for ${category || 'headline'}: ${data.message}`);
+        render.showError(containerId, `API 錯誤：${data.message}`);
         if (cachedData) {
           console.log(`Using expired cached data for ${category || 'headline'}`);
           render.renderNews(containerId, cachedData.results, isHeadline, append);
         } else {
-          render.renderNews(containerId, [], isHeadline);
+          render.renderNews(containerId, [], isHeadline, append);
         }
       }
     } catch (error) {
       console.error(`Error fetching ${category || 'headline'} news:`, error);
+      render.showError(containerId, `載入新聞失敗：${error.message}`);
       if (cachedData) {
         console.log(`Using expired cached data for ${category || 'headline'}`);
         render.renderNews(containerId, cachedData.results, isHeadline, append);
       } else {
-        render.renderNews(containerId, [], isHeadline);
+        render.renderNews(containerId, [], isHeadline, append);
       }
     }
   },
 
   async fetchRegionalNews(apiKey) {
-    const container = document.getElementById('regional-news');
+    const containerId = 'regional-news-content';
+    const container = document.getElementById(containerId);
+    const errorEl = document.getElementById('regional-error');
+    if (!container) {
+      console.error(`Container #${containerId} not found`);
+      if (errorEl) errorEl.textContent = `渲染錯誤：找不到容器 #${containerId}`;
+      return;
+    }
     container.innerHTML = '';
+    if (errorEl) errorEl.classList.add('hidden');
+
     for (const [region, countryCode] of Object.entries(regions)) {
       const cacheKey = `news_regional_${region}`;
       let cachedData = null;
@@ -287,7 +325,7 @@ const fetch = {
           const { data, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < 15 * 60 * 1000) {
             console.log(`Using cached data for ${region}`);
-            render.renderNews('regional-news', data.results, false, true, region);
+            render.renderNews(containerId, data.results, false, true, region);
             continue;
           }
           cachedData = data;
@@ -298,9 +336,6 @@ const fetch = {
       }
       try {
         let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}&language=zh,en`;
-        if (validSources.length > 0) {
-          url += `&source=${encodeURIComponent(validSources.join(','))}`;
-        }
         console.log(`Fetching regional news: ${url}`);
         const response = await window.fetch(url).catch(e => { throw new Error(`Fetch error: ${e.message}`); });
         if (!response.ok) {
@@ -315,36 +350,43 @@ const fetch = {
             errorMessage = 'Unknown error';
           }
           if (response.status === 429) {
-            errorMessage = `${region}: News API 請求超限，請稍後重試。檢查 F12 > Network`;
+            errorMessage = `${region}: 新聞 API 請求超限，請稍後重試。`;
           } else if (response.status === 401) {
-            errorMessage = `${region}: News API 密鑰無效，請檢查 config.js。檢查 F12 > Network`;
+            errorMessage = `${region}: 新聞 API 密鑰無效，請檢查 config.js。`;
           } else if (response.status === 422) {
-            errorMessage = `${region}: News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）或參數。檢查 F12 > Network`;
+            errorMessage = `${region}: 新聞 API 請求無效（422）：${errorMessage}。請檢查 API 文檔。`;
           }
-          container.innerHTML += `<div class="text-center text-red-500">${errorMessage}</div>`;
+          if (errorEl) {
+            errorEl.textContent += `${errorMessage}\n`;
+            errorEl.classList.remove('hidden');
+          }
           throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
         console.log(`API response for ${region}:`, data);
         if (data.status === 'success' && data.results && data.results.length > 0) {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-          render.renderNews('regional-news', data.results, false, true, region);
+          render.renderNews(containerId, data.results, false, true, region);
         } else {
           console.warn(`No results for ${region}`);
           if (cachedData) {
             console.log(`Using expired cached data for ${region}`);
-            render.renderNews('regional-news', cachedData.results, false, true, region);
+            render.renderNews(containerId, cachedData.results, false, true, region);
           } else {
-            render.renderNews('regional-news', [], false, true, region);
+            render.renderNews(containerId, [], false, true, region);
           }
         }
       } catch (error) {
         console.error(`Error fetching ${region} news:`, error);
+        if (errorEl) {
+          errorEl.textContent += `載入 ${region} 新聞失敗：${error.message}\n`;
+          errorEl.classList.remove('hidden');
+        }
         if (cachedData) {
           console.log(`Using expired cached data for ${region}`);
-          render.renderNews('regional-news', cachedData.results, false, true, region);
+          render.renderNews(containerId, cachedData.results, false, true, region);
         } else {
-          render.renderNews('regional-news', [], false, true, region);
+          render.renderNews(containerId, [], false, true, region);
         }
       }
     }
@@ -363,11 +405,13 @@ const events = {
       if (button) {
         button.addEventListener('click', () => {
           try {
-            fetch.loadMore(apiKey, category, `${category}-news`);
+            fetch.loadMore(apiKey, category, `${category}-news-content`);
           } catch (error) {
             console.error(`Error loading more ${category} news:`, error);
           }
         });
+      } else {
+        console.warn(`Load more button #load-more-${category} not found`);
       }
     });
 
@@ -375,7 +419,12 @@ const events = {
       anchor.addEventListener('click', e => {
         e.preventDefault();
         try {
-          document.querySelector(anchor.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+          const target = document.querySelector(anchor.getAttribute('href'));
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth' });
+          } else {
+            console.warn(`Scroll target ${anchor.getAttribute('href')} not found`);
+          }
         } catch (error) {
           console.error(`Error scrolling to section:`, error);
         }
@@ -393,6 +442,8 @@ const events = {
           console.error(`Error toggling search bar:`, error);
         }
       });
+    } else {
+      console.warn('Search toggle or bar not found');
     }
 
     const searchInput = document.getElementById('search');
@@ -400,17 +451,22 @@ const events = {
       searchInput.addEventListener('input', e => {
         try {
           const query = e.target.value.toLowerCase();
-          ['local-news', 'world-news', 'finance-news', 'regional-news'].forEach(sectionId => {
-            document.querySelectorAll(`#${sectionId} .card`).forEach(article => {
-              const title = article.querySelector('h3').textContent.toLowerCase();
-              const description = article.querySelector('p')?.textContent.toLowerCase() || '';
-              article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
-            });
+          ['local-news-content', 'world-news-content', 'finance-news-content', 'regional-news-content'].forEach(sectionId => {
+            const section = document.getElementById(sectionId);
+            if (section) {
+              section.querySelectorAll('.card').forEach(article => {
+                const title = article.querySelector('h3').textContent.toLowerCase();
+                const description = article.querySelector('p')?.textContent.toLowerCase() || '';
+                article.style.display = title.includes(query) || description.includes(query) ? 'block' : 'none';
+              });
+            }
           });
         } catch (error) {
           console.error(`Error searching news:`, error);
         }
       });
+    } else {
+      console.warn('Search input not found');
     }
 
     const themeLinks = document.querySelectorAll('.theme-link');
@@ -440,10 +496,10 @@ function initializeNews(apiKey) {
   utils.updateCurrentTime();
   setInterval(utils.updateCurrentTime, 1000);
   try {
-    fetch.fetchNews(apiKey, '', 'headline', true);
-    fetch.fetchNews(apiKey, 'local', 'local-news');
-    fetch.fetchNews(apiKey, 'world', 'world-news');
-    fetch.fetchNews(apiKey, 'business', 'finance-news');
+    fetch.fetchNews(apiKey, '', 'headline-news', true);
+    fetch.fetchNews(apiKey, 'local', 'local-news-content');
+    fetch.fetchNews(apiKey, 'world', 'world-news-content');
+    fetch.fetchNews(apiKey, 'business', 'finance-news-content');
     fetch.fetchRegionalNews(apiKey);
     events.setupEventListeners(apiKey);
   } catch (error) {
