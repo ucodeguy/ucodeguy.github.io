@@ -1,11 +1,10 @@
 window.AppConfig = {
-  NEWS_API_KEY: 'pub_0c304e4e636e4fc9b1659cd3eae0482b', // 請確認有效，檢查 https://newsdata.io/dashboard
+  NEWS_API_KEY: 'pub_0c304e4e636e4fc9b1659cd3eae0482b', // Verify at https://newsdata.io/dashboard
   validSources: [
     'scmp', 'hk01', 'mingpao', 'orientaldaily', 'hkecon',
     'chinatimes', 'libertytimes', 'udn',
     'nytimes', 'bbc', 'cnn', 'reuters',
-    'stheadline.com.hk', 'dailymailuk', 'rthk',
-    'etnet.com.hk' // 假設 etnet 的 source_id
+    'stheadline', 'dailymailuk', 'rthk', 'etnet'
   ],
   fallbackSources: false,
   sourceLogos: {
@@ -21,10 +20,10 @@ window.AppConfig = {
     'bbc': 'https://via.placeholder.com/150?text=BBC',
     'cnn': 'https://via.placeholder.com/150?text=CNN',
     'reuters': 'https://via.placeholder.com/150?text=Reuters',
-    'stheadline.com.hk': 'https://via.placeholder.com/150?text=Star+Headline',
+    'stheadline': 'https://via.placeholder.com/150?text=Star+Headline',
     'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
-    'etnet.com.hk': 'https://via.placeholder.com/150?text=ETNet',
+    'etnet': 'https://via.placeholder.com/150?text=ETNet',
     'default': 'https://via.placeholder.com/300x200?text=News'
   },
   regions: {
@@ -36,6 +35,5 @@ window.AppConfig = {
     '英國': 'gb',
     '中國': 'cn'
   }
-  // 注意：部署後檢查 F12 > Console 的 source_id，若無 etnet.com.hk、stheadline.com.hk、rthk 等，執行以下代碼查詢有效 source_id：
-  // fetch('https://newsdata.io/api/1/sources?apikey=YOUR_API_KEY').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
+  // To verify source_id, run: fetch('https://newsdata.io/api/1/sources?apikey=pub_0c304e4e636e4fc9b1659cd3eae0482b').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
 };
