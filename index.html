@@ -34,6 +34,7 @@
   <main class="container mx-auto px-4 py-6">
     <section id="headline" class="mb-8">
       <div id="headline-news" class="bg-white rounded-lg shadow overflow-hidden" data-category="headline"></div>
+      <div id="headline-error" class="text-red-500 text-sm hidden"></div>
       <div class="flex justify-between text-xs text-gray-500 mt-2">
         <p>最後更新: <span id="last-update"></span></p>
         <p>當前時間: <span id="current-time"></span></p>
@@ -41,19 +42,22 @@
     </section>
 
     <section id="content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div id="local" class="col-span-1">
+      <div id="local">
         <h2 class="text-2xl font-bold mb-4">本地新聞</h2>
         <div id="local-news-content" class="grid grid-cols-1 gap-4" data-category="local-news"></div>
+        <div id="local-error" class="text-red-500 text-sm hidden"></div>
         <button id="load-more-local" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
       </div>
-      <div id="world" class="col-span-1">
+      <div id="world">
         <h2 class="text-2xl font-bold mb-4">世界新聞</h2>
         <div id="world-news-content" class="grid grid-cols-1 gap-4" data-category="world-news"></div>
+        <div id="world-error" class="text-red-500 text-sm hidden"></div>
         <button id="load-more-world" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
       </div>
-      <div id="finance" class="col-span-1">
+      <div id="finance">
         <h2 class="text-2xl font-bold mb-4">財經新聞</h2>
         <div id="finance-news-content" class="grid grid-cols-1 gap-4" data-category="finance-news"></div>
+        <div id="finance-error" class="text-red-500 text-sm hidden"></div>
         <button id="load-more-finance" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm w-full hidden">加載更多</button>
       </div>
     </section>
@@ -61,6 +65,7 @@
     <section id="regional" class="mt-8">
       <h2 class="text-2xl font-bold mb-4">地區新聞</h2>
       <div id="regional-news-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-category="regional-news"></div>
+      <div id="regional-error" class="text-red-500 text-sm hidden"></div>
     </section>
   </main>
 
