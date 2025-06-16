@@ -131,7 +131,7 @@ const render = {
     const sortedArticles = articlesWithScore.map(({ article }) => article);
 
     if (sortedArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 stheadline、rthk_ch），或清除瀏覽器緩存後重試</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500">無繁體中文或英文新聞（指定來源），可能原因：無近期數據、語言不符、API限制或來源不匹配。請檢查 F12 > Console 的 API 響應和 source_id（例如 etnet、stheadline、rthk），或清除瀏覽器緩存後重試</div>`;
       if (!region) document.getElementById(`load-more-${category}`)?.classList.add('hidden');
       return;
     }
@@ -240,7 +240,7 @@ const fetch = {
       if (isHeadline) {
         url += '&category=top&country=hk';
       } else if (category === 'local') {
-        url += '&country=hk'; // 移除 category=local，可能不受支持
+        url += '&country=hk';
       } else if (category === 'world') {
         url += '&category=world';
       } else if (category === 'business') {
@@ -267,7 +267,7 @@ const fetch = {
         } else if (response.status === 401) {
           errorMessage = 'News API 密鑰無效，請檢查 config.js。檢查 F12 > Network';
         } else if (response.status === 422) {
-          errorMessage = `News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）、來源（stheadline、rthk_ch 等）或參數（category、country）。檢查 F12 > Network 的請求和響應`;
+          errorMessage = `News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）、來源（etnet、stheadline、rthk 等）或參數（category、country）。檢查 F12 > Network 的請求和響應`;
         }
         document.getElementById(containerId).innerHTML = `<div class="text-center text-red-500">${errorMessage}</div>`;
         throw new Error(`HTTP ${response.status}`);
