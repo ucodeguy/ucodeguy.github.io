@@ -4,7 +4,8 @@ window.AppConfig = {
     'scmp', 'hk01', 'mingpao', 'orientaldaily', 'hkecon',
     'chinatimes', 'libertytimes', 'udn',
     'nytimes', 'bbc', 'cnn', 'reuters',
-    'stheadline', 'dailymailuk', 'rthk' // 移除 google，檢查 rthk_ch 是否為 rthk
+    'stheadline', 'dailymailuk', 'rthk',
+    'etnet' // 新增經濟通
   ],
   fallbackSources: false,
   sourceLogos: {
@@ -23,6 +24,7 @@ window.AppConfig = {
     'stheadline': 'https://via.placeholder.com/150?text=Star+Headline',
     'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
+    'etnet': 'https://via.placeholder.com/150?text=ETNet', // 新增
     'default': 'https://via.placeholder.com/300x200?text=News'
   },
   regions: {
@@ -36,6 +38,6 @@ window.AppConfig = {
   },
   traditionalChars: new Set(['個', '這', '會', '與', '為', '於', '當', '從', '學', '國', '後', '發']),
   simplifiedChars: new Set(['个', '这', '会', '与', '为', '于', '当', '从', '学', '国', '后', '发'])
-  // 注意：部署後檢查 F12 > Console 的 source_id，若無 stheadline、rthk 等，執行以下代碼查詢有效 source_id：
+  // 注意：部署後檢查 F12 > Console 的 source_id，若無 etnet、stheadline、rthk 等，執行以下代碼查詢有效 source_id：
   // fetch('https://newsdata.io/api/1/sources?apikey=YOUR_API_KEY').then(res => res.json()).then(data => console.log(data.results.map(s => s.source_id)));
 };
