@@ -4,7 +4,7 @@ window.AppConfig = {
     'scmp', 'hk01', 'mingpao', 'orientaldaily', 'hkecon',
     'chinatimes', 'libertytimes', 'udn',
     'nytimes', 'bbc', 'cnn', 'reuters',
-    'stheadline', 'dailymailuk', 'rthk', 'etnet'
+    'stheadline', 'dailymailuk', 'rthk', 'etnet', 'nypost'
   ],
   fallbackSources: false,
   sourceLogos: {
@@ -24,6 +24,7 @@ window.AppConfig = {
     'dailymailuk': 'https://via.placeholder.com/150?text=Daily+Mail+UK',
     'rthk': 'https://via.placeholder.com/150?text=RTHK',
     'etnet': 'https://via.placeholder.com/150?text=ETNet',
+    'nypost': 'https://via.placeholder.com/150?text=NY+Post',
     'default': 'https://via.placeholder.com/300x200?text=News'
   },
   regions: {
