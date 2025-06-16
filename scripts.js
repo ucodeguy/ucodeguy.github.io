@@ -10,7 +10,7 @@ const utils = {
       if (traditionalChars.has(char)) tradCount++;
       if (simplifiedChars.has(char)) simpCount++;
     }
-    return tradCount >= simpCount && tradCount > 0 ? tradCount / (tradCount + simpCount + 1) : 0;
+    return tradCount >= simpCount;
   },
 
   isEnglish(text) {
@@ -236,11 +236,11 @@ const fetch = {
       }
     }
     try {
-      let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}`;
+      let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh,en`;
       if (isHeadline) {
         url += '&category=top&country=hk';
       } else if (category === 'local') {
-        url += '&category=local&country=hk';
+        url += '&country=hk'; // 移除 category=local，可能不受支持
       } else if (category === 'world') {
         url += '&category=world';
       } else if (category === 'business') {
@@ -253,11 +253,23 @@ const fetch = {
       const response = await window.fetch(url);
       if (!response.ok) {
         console.error(`API request failed: ${response.status} ${response.statusText}`);
-        if (response.status === 429) {
-          document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">News API 請求超限，請稍後重試。檢查 F12 > Network</div>';
-        } else if (response.status === 401) {
-          document.getElementById(containerId).innerHTML = '<div class="text-center text-red-500">News API 密鑰無效，請檢查 config.js。檢查 F12 > Network</div>';
+        let errorMessage = '';
+        try {
+          const errorData = await response.json();
+          console.error(`API error details:`, errorData);
+          errorMessage = errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+          console.warn(`Failed to parse error response:`, e);
+          errorMessage = 'Unknown error';
         }
+        if (response.status === 429) {
+          errorMessage = 'News API 請求超限，請稍後重試。檢查 F12 > Network';
+        } else if (response.status === 401) {
+          errorMessage = 'News API 密鑰無效，請檢查 config.js。檢查 F12 > Network';
+        } else if (response.status === 422) {
+          errorMessage = `News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）、來源（stheadline、rthk_ch 等）或參數（category、country）。檢查 F12 > Network 的請求和響應`;
+        }
+        document.getElementById(containerId).innerHTML = `<div class="text-center text-red-500">${errorMessage}</div>`;
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
@@ -319,16 +331,28 @@ const fetch = {
         }
       }
       try {
-        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}`;
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}&language=zh,en`;
         console.log(`Fetching regional news: ${url}`);
         const response = await window.fetch(url);
         if (!response.ok) {
           console.error(`API request failed for ${region}: ${response.status} ${response.statusText}`);
-          if (response.status === 429) {
-            container.innerHTML += `<div class="text-center text-red-500">${region}: News API 請求超限，請稍後重試。檢查 F12 > Network</div>`;
-          } else if (response.status === 401) {
-            container.innerHTML += `<div class="text-center text-red-500">${region}: News API 密鑰無效，請檢查 config.js。檢查 F12 > Network</div>`;
+          let errorMessage = '';
+          try {
+            const errorData = await response.json();
+            console.error(`API error details:`, errorData);
+            errorMessage = errorData.message || JSON.stringify(errorData);
+          } catch (e) {
+            console.warn(`Failed to parse error response:`, e);
+            errorMessage = 'Unknown error';
           }
+          if (response.status === 429) {
+            errorMessage = `${region}: News API 請求超限，請稍後重試。檢查 F12 > Network`;
+          } else if (response.status === 401) {
+            errorMessage = `${region}: News API 密鑰無效，請檢查 config.js。檢查 F12 > Network`;
+          } else if (response.status === 422) {
+            errorMessage = `${region}: News API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）或參數。檢查 F12 > Network`;
+          }
+          container.innerHTML += `<div class="text-center text-red-500">${errorMessage}</div>`;
           throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
