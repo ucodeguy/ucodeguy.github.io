@@ -55,6 +55,8 @@ const utils = {
       return text.includes('香港');
     } else if (category === 'finance') {
       return !text.includes('天氣') && !text.includes('颱風');
+    } else if (category === 'world') {
+      return true; // Relaxed for international news
     }
     return true;
   },
@@ -64,7 +66,7 @@ const utils = {
       if (key.startsWith('news_') || key.startsWith('seenTitles_')) {
         try {
           const { data, timestamp } = JSON.parse(localStorage.getItem(key));
-          if (!data || !timestamp) {
+          if (!data || !Array.isArray(data.results)) {
             console.log(`Clearing invalid cache: ${key}`);
             localStorage.removeItem(key);
           }
@@ -94,6 +96,12 @@ const render = {
     let seenTitles = new Set(JSON.parse(localStorage.getItem(`seenTitles_${containerId}`) || '[]'));
     const filteredSources = new Set();
 
+    // Log all source_id values for debugging
+    articles.forEach(article => {
+      const source = (article.source_id || article.source_name || '').toLowerCase();
+      console.log(`Article source_id: ${source}, title: ${article.title}`);
+    });
+
     const filteredArticles = articles.filter(article => {
       if (!article.title || !article.link) {
         console.warn(`Missing title or link for article:`, article);
@@ -107,20 +115,12 @@ const render = {
         console.log(`Filtered out article due to category: ${article.title}`);
         return false;
       }
-      const source = (article.source_id || article.source_name || '').toLowerCase();
-      // Temporary: Allow all sources for debugging
-      // const isValidSource = validSources.some(valid => source.includes(valid));
-      // if (!isValidSource) {
-      //   console.log(`Filtered out article due to invalid source: ${source}, title: ${article.title}`);
-      //   filteredSources.add(source);
-      //   return false;
-      // }
-      return true;
+      return true; // Source filtering disabled for debugging
     });
     console.log(`Filtered out ${articles.length - filteredArticles.length} articles for ${category}. Excluded sources:`, [...filteredSources]);
 
     if (filteredArticles.length === 0) {
-      container.innerHTML = `<div class="text-center text-gray-500 text-sm">無新聞，可能原因：無近期數據、API限制或來源不匹配。請檢查 F12 > Console 的 source_id（例如 nypost, etnet, stheadline, rthk）。排除的 source_id：${[...filteredSources].join(', ')}</div>`;
+      container.innerHTML = `<div class="text-center text-gray-500 text-sm">無新聞，可能原因：無近期數據或API限制。請檢查 F12 > Console 的 source_id（例如 nypost, etnet, rthk）。排除的 source_id：${[...filteredSources].join(', ')}</div>`;
       if (!region && containerId !== 'headline-news') {
         const loadMoreBtn = document.getElementById(`load-more-${category}`);
         if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
@@ -214,10 +214,13 @@ const fetch = {
     if (cached) {
       try {
         const { data, timestamp } = JSON.parse(cached);
-        console.log(`Using cached data (expired or not) for ${category || 'headline'}`);
-        render.renderNews(containerId, data.results, isHeadline, append);
-        if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
-        return;
+        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+          console.log(`Using fresh cached data for ${category || 'headline'}`);
+          render.renderNews(containerId, data.results, isHeadline, append);
+          if (!isHeadline && data.nextPage) nextPages[containerId.split('-')[0]] = data.nextPage;
+          return;
+        }
+        cachedData = data; // Store for fallback
       } catch (error) {
         console.warn(`Invalid cache for ${cacheKey}, clearing cache`, error);
         localStorage.removeItem(cacheKey);
@@ -249,9 +252,14 @@ const fetch = {
         } else if (response.status === 401) {
           errorMessage = '新聞 API 密鑰無效，請檢查 config.js。';
         } else if (response.status === 422) {
-          errorMessage = `新聞 API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）或參數。`;
+          errorMessage = `新聞 API 請求無效（422）：${errorMessage}。請檢查 API 文檔（https://newsdata.io/documentation）。`;
         }
         render.showError(containerId, errorMessage);
+        if (cachedData) {
+          console.log(`Using expired cached data for ${category || 'headline'}`);
+          render.renderNews(containerId, cachedData.results, isHeadline, append);
+          if (!isHeadline && cachedData.nextPage) nextPages[containerId.split('-')[0]] = cachedData.nextPage;
+        }
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
@@ -267,17 +275,35 @@ const fetch = {
           }
         } else {
           console.warn(`No results for ${category || 'headline'}`);
-          render.renderNews(containerId, [], isHeadline, append);
+          if (cachedData) {
+            console.log(`Using expired cached data for ${category || 'headline'}`);
+            render.renderNews(containerId, cachedData.results, isHeadline, append);
+            if (!isHeadline && cachedData.nextPage) nextPages[containerId.split('-')[0]] = cachedData.nextPage;
+          } else {
+            render.renderNews(containerId, [], isHeadline, append);
+          }
         }
       } else {
         console.error(`API error for ${category || 'headline'}: ${data.message}`);
         render.showError(containerId, `API 錯誤：${data.message}`);
-        render.renderNews(containerId, [], isHeadline, append);
+        if (cachedData) {
+          console.log(`Using expired cached data for ${category || 'headline'}`);
+          render.renderNews(containerId, cachedData.results, isHeadline, append);
+          if (!isHeadline && cachedData.nextPage) nextPages[containerId.split('-')[0]] = cachedData.nextPage;
+        } else {
+          render.renderNews(containerId, [], isHeadline, append);
+        }
       }
     } catch (error) {
       console.error(`Error fetching ${category || 'headline'} news:`, error);
       render.showError(containerId, `載入新聞失敗：${error.message}`);
-      render.renderNews(containerId, [], isHeadline, append);
+      if (cachedData) {
+        console.log(`Using expired cached data for ${category || 'headline'}`);
+        render.renderNews(containerId, cachedData.results, isHeadline, append);
+        if (!isHeadline && cachedData.nextPage) nextPages[containerId.split('-')[0]] = cachedData.nextPage;
+      } else {
+        render.renderNews(containerId, [], isHeadline, append);
+      }
     }
   },
 
@@ -300,16 +326,19 @@ const fetch = {
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
-          console.log(`Using cached data (expired or not) for ${region}`);
-          render.renderNews(containerId, data.results, false, true, region);
-          continue;
+          if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+            console.log(`Using fresh cached data for ${region}`);
+            render.renderNews(containerId, data.results, false, true, region);
+            continue;
+          }
+          cachedData = data; // Store for fallback
         } catch (error) {
           console.warn(`Invalid cache for ${cacheKey}, clearing cache`, error);
           localStorage.removeItem(cacheKey);
         }
       }
       try {
-        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&country=${countryCode}&language=zh,en`;
+        let url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh,en&q=${encodeURIComponent(region)}`;
         console.log(`Fetching regional news: ${url}`);
         const response = await window.fetch(url).catch(e => { throw new Error(`Fetch error: ${e.message}`); });
         if (!response.ok) {
@@ -334,6 +363,10 @@ const fetch = {
             errorEl.textContent += `${errorMessage}\n`;
             errorEl.classList.remove('hidden');
           }
+          if (cachedData) {
+            console.log(`Using expired cached data for ${region}`);
+            render.renderNews(containerId, cachedData.results, false, true, region);
+          }
           throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
@@ -342,19 +375,10 @@ const fetch = {
           localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
           render.renderNews(containerId, data.results, false, true, region);
         } else {
-          console.warn(`No results for ${region}, trying broader query`);
-          // Fallback: Fetch without country code
-          url = `${baseUrl}?apikey=${encodeURIComponent(apiKey)}&language=zh,en&q=${encodeURIComponent(region)}`;
-          console.log(`Fetching fallback regional news: ${url}`);
-          const fallbackResponse = await window.fetch(url);
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            if (fallbackData.status === 'success' && fallbackData.results.length > 0) {
-              localStorage.setItem(cacheKey, JSON.stringify({ data: fallbackData, timestamp: Date.now() }));
-              render.renderNews(containerId, fallbackData.results, false, true, region);
-            } else {
-              render.renderNews(containerId, [], false, true, region);
-            }
+          console.warn(`No results for ${region}`);
+          if (cachedData) {
+            console.log(`Using expired cached data for ${region}`);
+            render.renderNews(containerId, cachedData.results, false, true, region);
           } else {
             render.renderNews(containerId, [], false, true, region);
           }
@@ -365,7 +389,12 @@ const fetch = {
           errorEl.textContent += `載入 ${region} 新聞失敗：${error.message}\n`;
           errorEl.classList.remove('hidden');
         }
-        render.renderNews(containerId, [], false, true, region);
+        if (cachedData) {
+          console.log(`Using expired cached data for ${region}`);
+          render.renderNews(containerId, cachedData.results, false, true, region);
+        } else {
+          render.renderNews(containerId, [], false, true, region);
+        }
       }
     }
   },
